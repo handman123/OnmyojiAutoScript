@@ -992,7 +992,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                 return
             # 第二次道馆结束后,无论成功还是失败,按照success_interval时间间隔下次执行;如果设置强制时间间隔,则按照强制时间间隔下次执行
             if self.config.dokan.attack_count_config.remain_attack_count == 0:
-                self.set_next_run(task="Dokan", finish=False, success=is_dokan_activated, server=True)
+                self.set_next_run(task="Dokan", finish=False, success=True, server=True)
                 return
 
     def next_run(self, skip_today=False, is_dokan_activated=False):
