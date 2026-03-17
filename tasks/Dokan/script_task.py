@@ -254,8 +254,10 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                 is_zombie_mode = cfg.dokan_config.zombie_mode
                 # 开启且找到福利寮
                 if is_zombie_mode and self.foound_zombie_dokan:
+                    logger.info("found zombie dokan, read attack team configuration for zombie dokan")
                     group, team = cfg.dokan_config.parse_preset_group(cfg.dokan_config.preset_group_3)
                 else:
+                    logger.info("found normal dokan, read attack team configuration for normal dokan")
                     group, team = cfg.dokan_config.parse_preset_group(cfg.dokan_config.preset_group_1)
                 
                 if cfg.dokan_config.switch_preset_enable and group:
@@ -638,12 +640,12 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                 return None
             return float(match.group())
         
-        def _click_dokan_and_wait(item, offset):
+        def _click_dokan_and_wait(item, target, offset):
             """点击道馆并等待挑战按钮，返回布尔值"""
             # 扩大点击区域
-            self.I_RIGHTPAD_POINT_BOUNTY.roi_back = self.position_offset(item, offset)
+            target.roi_back = self.position_offset(item, offset)
             return self.ui_click_until_appear_or_timeout(
-                self.I_RIGHTPAD_POINT_BOUNTY,
+                target,
                 self.I_CENTER_CHALLENGE,
                 interval=1.5,
                 timeout=8
@@ -702,7 +704,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                 bounty = _extract_bounty(item, (0, 0, 100, 0))
 
                 # 点击道馆并等待挑战按钮，返回布尔值
-                if not _click_dokan_and_wait(item, (-10, -10, 20, 20)):
+                if not _click_dokan_and_wait(item, self.I_RIGHTPAD_POINT_BOUNTY, (-10, -10, 20, 20)):
                     logger.info(f"can't find challenge button,idx={idx} item={item}")
                     continue
 
@@ -712,7 +714,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                     continue
 
                 item_score = bounty / p_num
-                logger.info("bounty:{bounty},people_num:{p_num},score:{item_score}")
+                logger.info(f"bounty:{bounty},people_num:{p_num},score:{item_score}")
                 
                 if item_score < min_score:
                     min_score = item_score
@@ -762,7 +764,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                 bounty = _extract_bounty(item, (0, 40, 20, 0))
 
                 # 点击道馆并等待挑战按钮，返回布尔值
-                if not _click_dokan_and_wait(item, (0, 0, 0, 0)):
+                if not _click_dokan_and_wait(item, self.I_RYOU_DOKAN_XXZ_DOKAN, (0, 0, 0, 0)):
                     logger.info(f"can't find challenge button,idx={idx} item={item}")
                     continue
 
