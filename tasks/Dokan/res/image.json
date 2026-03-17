@@ -556,5 +556,14 @@
     "method": "Template matching",
     "threshold": 0.8,
     "description": "description"
+  },
+  {
+    "itemName": "rightpad_point_xxz",
+    "imageName": "res_ryou_dokan_rightpad_point_xxz.png",
+    "roiFront": "1050,0,230,0",
+    "roiBack": "1050,0,230,100",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "description"
   }
 ]

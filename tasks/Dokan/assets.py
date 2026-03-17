@@ -166,6 +166,8 @@ class DokanAssets:
 	I_RYOU_DOKAN_UNBUILT = RuleImage(roi_front=(75,490,45,106), roi_back=(75,496,44,92), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_dokan_dokan_unbuilt.png")
 	# 我的道馆界面-阵容配置
 	I_RYOU_DOKAN_MINE_DOKAN_TEAM_COMPOSITION = RuleImage(roi_front=(165,582,127,45), roi_back=(165,582,127,45), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_dokan_mine_dokan_team_composition.png")
+	# xxz道馆图标
+	I_RYOU_DOKAN_XXZ_DOKAN = RuleImage(roi_front=(1050,0,230,0), roi_back=(1050,0,230,100), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_ryou_dokan_rightpad_point_xxz.png")
 
 	# List Rule Assets
 	# 这个是当前活跃的竂活动列表界面 

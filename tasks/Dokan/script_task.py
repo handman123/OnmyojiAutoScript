@@ -43,6 +43,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
     green_mark_done: bool = False
     switch_soul_done: bool = False
     dokan_created: bool = False
+    foound_zombie_dokan: bool = False
 
     @cached_property
     def _attack_priorities(self) -> list:
@@ -250,7 +251,13 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                 continue
             # 场景状态：进入战斗，待开始
             if current_scene == DokanScene.RYOU_DOKAN_SCENE_IN_FIELD:
-                group, team = cfg.dokan_config.parse_preset_group(cfg.dokan_config.preset_group_1)
+                is_zombie_mode = cfg.dokan_config.zombie_mode
+                # 开启且找到福利寮
+                if is_zombie_mode and self.foound_zombie_dokan:
+                    group, team = cfg.dokan_config.parse_preset_group(cfg.dokan_config.preset_group_3)
+                else:
+                    group, team = cfg.dokan_config.parse_preset_group(cfg.dokan_config.preset_group_1)
+                
                 if cfg.dokan_config.switch_preset_enable and group:
                     logger.info(f"Normal Battle:switch_preset_team{group},{team}")
                     self.switch_preset_team(cfg.dokan_config.switch_preset_enable, group, team)
@@ -297,7 +304,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                 logger.info("Dokan challenge finished, exit Dokan")
                 # 更新配置
                 self.update_remain_attack_count()
-
+                self.foound_zombie_dokan = False
                 break
 
             logger.info(f"scene Without handler, skipped")
@@ -577,6 +584,8 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
     
         返回:
         bool: 是否找到了符合条件的道馆并进行挑战。
+
+        修改说明：原本的find_challengeable()方法逻辑过于复杂，从中提取出公共部分，并增加寻找僵尸寮功能
         """
 
         #
@@ -589,13 +598,76 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
         # 刷新按钮点击次数
         num_fresh = 0
         # 备份一些重要的ROI区域，以便在循环中恢复
-        backup = {'i_point_bounty': self.I_RIGHTPAD_POINT_BOUNTY.roi_back,
-                  # 'o_dokan_rightpad_bounty':self.O_DOKAN_RIGHTPAD_BOUNTY.roi,
-                  'i_point_people_num': self.I_CENTER_POINT_PEOPLE_NUMBER.roi_back}
+        backup = {
+            'i_point_bounty': self.I_RIGHTPAD_POINT_BOUNTY.roi_back,
+            # 'o_dokan_rightpad_bounty':self.O_DOKAN_RIGHTPAD_BOUNTY.roi,
+            'i_point_people_num': self.I_CENTER_POINT_PEOPLE_NUMBER.roi_back,
+            "i_xxz_dokan": self.I_RYOU_DOKAN_XXZ_DOKAN.roi_back
+        }
 
         def restore_roi():
             self.I_RIGHTPAD_POINT_BOUNTY.roi_back = backup['i_point_bounty']
             self.I_CENTER_POINT_PEOPLE_NUMBER.roi_back = backup['i_point_people_num']
+            self.I_RYOU_DOKAN_XXZ_DOKAN.roi_back = backup['i_xxz_dokan']
+
+        def _extract_bounty(item, offset):
+            """从道馆区域，提取赏金"""
+            self.screenshot()
+            self.O_DOKAN_RIGHTPAD_BOUNTY.roi = self.position_offset(item, offset)
+            bounty = self.O_DOKAN_RIGHTPAD_BOUNTY.ocr(self.device.image)
+            tmp = re.search(r'(\d+)', bounty)
+            if not tmp:
+                logger.warning(f"can't find bounty,item = {item},ocr bounty={bounty}")
+                return None
+            return float(tmp.group())
+
+        def _extract_people_num():
+            """提取当前选中道馆的防守人数"""
+            self.screenshot()
+            if not self.appear(self.I_CENTER_POINT_PEOPLE_NUMBER):
+                logger.warning("未找到人数标志")
+                return None
+            self.O_DOKAN_CENTER_PEOPLE_NUMBER.roi = self.position_offset(
+                self.I_CENTER_POINT_PEOPLE_NUMBER.roi_front,
+                (0, 0, 0, 30)
+            )
+            people_text = self.O_DOKAN_CENTER_PEOPLE_NUMBER.detect_text(self.device.image)
+            match = re.search(r'(\d+)', people_text)
+            if not match:
+                logger.warning(f"无法识别人数，OCR结果={people_text}")
+                return None
+            return float(match.group())
+        
+        def _click_dokan_and_wait(item, offset):
+            """点击道馆并等待挑战按钮，返回布尔值"""
+            # 扩大点击区域
+            self.I_RIGHTPAD_POINT_BOUNTY.roi_back = self.position_offset(item, offset)
+            return self.ui_click_until_appear_or_timeout(
+                self.I_RIGHTPAD_POINT_BOUNTY,
+                self.I_CENTER_CHALLENGE,
+                interval=1.5,
+                timeout=8
+            )
+        
+        def _is_dokan_qualified(bounty, people_num, score_threshold):
+            """判断道馆是否符合常规条件"""
+            item_score = bounty / people_num
+            if item_score < 1.5:
+                logger.info("分数过低，可能OCR错误")
+                return False
+            if item_score > score_threshold:
+                logger.info(f"分数 {item_score} 高于阈值 {score_threshold}")
+                return False
+            if people_num < self.config.dokan.dokan_config.min_people_num:
+                logger.info("人数太少")
+                return False
+            if bounty < self.config.dokan.dokan_config.min_bounty:
+                logger.info("赏金太少")
+                return False
+            if not self.appear(self.I_CENTER_GUANZHU_XIUXI):
+                logger.info("馆主不是修习等级")
+                return False
+            return True
 
         def find_challengeable(ignore_score=False):
             """
@@ -627,59 +699,29 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                     self.wait_animate_stable(self.C_DOKAN_CANCEL_SELECT_DOKAN_CHECK_ANIMATE, interval=0.5, timeout=1.5)
 
                 # 获取赏金金额
-                self.O_DOKAN_RIGHTPAD_BOUNTY.roi = self.position_offset(item, (0, 0, 100, 0))
-                bounty = self.O_DOKAN_RIGHTPAD_BOUNTY.ocr(self.device.image)
-                tmp = re.search(r'(\d+)', bounty)
-                if not tmp:
-                    logger.warning(f"can't find bounty,item = {item},ocr bounty={bounty}")
-                    continue
-                bounty = float(tmp.group())
-                # 扩大搜索区域,防止找不到
-                self.I_RIGHTPAD_POINT_BOUNTY.roi_back = self.position_offset(item, (-10, -10, 20, 20))
-                # Note: 道馆不可挑战时(被别的寮打了),8秒后跳过
-                if not self.ui_click_until_appear_or_timeout(self.I_RIGHTPAD_POINT_BOUNTY, self.I_CENTER_CHALLENGE,
-                                                             interval=1.5, timeout=8):
-                    logger.info(f"can't find challenge button,idx={idx} item={item}")
-                    # 道馆不可挑战,挑战按钮不会弹出 ,直接进行下一个
-                    continue
-                # 获取防守人数
-                self.screenshot()
-                if not self.appear(self.I_CENTER_POINT_PEOPLE_NUMBER):
-                    logger.warning(f"can't find point people number image, item={item}")
-                    continue
-                self.O_DOKAN_CENTER_PEOPLE_NUMBER.roi = self.position_offset(
-                    self.I_CENTER_POINT_PEOPLE_NUMBER.roi_front,
-                    (0, 0, 0, 30))
-                p_num = self.O_DOKAN_CENTER_PEOPLE_NUMBER.detect_text(self.device.image)
-                tmp = re.search(r"(\d+)", p_num)
-                if not tmp:
-                    logger.warning(f"can't find people number in ocr result,item={item}, p_num={p_num}")
-                    continue
-                p_num = float(tmp.group())
+                bounty = _extract_bounty(item, (0, 0, 100, 0))
 
-                logger.info(f"==================="
-                            f"bounty:{bounty},people_num:{p_num},score:{bounty / p_num}"
-                            f"===================")
+                # 点击道馆并等待挑战按钮，返回布尔值
+                if not _click_dokan_and_wait(item, (-10, -10, 20, 20)):
+                    logger.info(f"can't find challenge button,idx={idx} item={item}")
+                    continue
+
+                # 获取防守人数
+                p_num = _extract_people_num()
+                if p_num is None:
+                    continue
 
                 item_score = bounty / p_num
+                logger.info("bounty:{bounty},people_num:{p_num},score:{item_score}")
+                
                 if item_score < min_score:
                     min_score = item_score
                     idx_selected = idx
-                # 大于系数 或者 系数过小(文字识别错误导致)
-                if item_score > score or item_score < 1.5:
-                    logger.info("click to making challenge disappear")
-                    continue
-                if p_num < self.config.dokan.dokan_config.min_people_num:
-                    logger.info("people num too small")
-                    continue
-                if bounty < self.config.dokan.dokan_config.min_bounty:
-                    logger.info("bounty too small")
-                    continue
-                # 馆主不是修习等级的
-                if not self.appear(self.I_CENTER_GUANZHU_XIUXI):
-                    continue
-                logger.info(f"find_dokan: bounty:{bounty},people_num:{p_num},score:{bounty / p_num}")
-                return True
+                
+                if _is_dokan_qualified(bounty, p_num, score):
+                    logger.info(f"find_dokan: bounty:{bounty},people_num:{p_num},score:{item_score}")
+                    return True
+                
             # 在所有列表中都没有符合的,且忽略系数限制,那么就选择最低分数的那个,点击显示挑战按钮
             if ignore_score:
                 x, y, w, h = bounty_list[idx_selected]
@@ -691,10 +733,60 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                     sleep(0.5)
             return False
 
+        def find_zombie():
+            """查找僵尸寮"""
+            restore_roi()
+            self.screenshot()
+            xxz_list = self.find_all_element(self.I_RYOU_DOKAN_XXZ_DOKAN, (0, 0, 0, self.I_RYOU_DOKAN_XXZ_DOKAN.roi_back[3]))
+            logger.info(f'find elements list:{xxz_list}')
+
+            if not xxz_list:
+                logger.info("can't find any zombie dokan")
+                return False
+            
+            for idx, item in enumerate(xxz_list):
+                self.device.click_record_clear()
+                logger.info(f"------start no.{idx} =={item}-----------")
+
+                # 点击使挑战按钮消失的区域(C_DOKAN_CANCEL_SELECT_DOKAN), 点击可能点击到其他寮,
+                # 因此需要在此处多点几次,直到挑战按钮消失,
+                # 又因为出现挑战按钮动画时长较长,因此需要耗时
+                self.screenshot()
+                while self.appear(self.I_CENTER_CHALLENGE):
+                    self.click(self.C_DOKAN_CANCEL_SELECT_DOKAN, interval=1.5)
+                    self.wait_animate_stable(self.C_DOKAN_CANCEL_SELECT_DOKAN_CHECK_ANIMATE, interval=0.5, timeout=1.5)
+                
+                # 简单判断僵尸寮，避免遇到刺客
+                # 人数大于100，赏金低于800w
+                # 获取赏金金额
+                bounty = _extract_bounty(item, (0, 40, 20, 0))
+
+                # 点击道馆并等待挑战按钮，返回布尔值
+                if not _click_dokan_and_wait(item, (0, 0, 0, 0)):
+                    logger.info(f"can't find challenge button,idx={idx} item={item}")
+                    continue
+
+                # 获取防守人数
+                p_num = _extract_people_num()
+                if p_num is None:
+                    continue
+                
+                logger.info("bounty:{bounty},people_num:{p_num}")
+                if p_num > 90 and bounty < 800:
+                    logger.info(f"find zombie dokan: bounty:{bounty},people_num:{p_num}")
+                    self.foound_zombie_dokan = True
+                    return True
+            return False
+
         while num_fresh < self.config.dokan.dokan_config.find_dokan_refresh_count:
             for i in range(3):
                 sleep(3)
-                if find_challengeable():
+                if self.config.dokan.dokan_config.zombie_mode:
+                    res = find_zombie()
+                else:
+                    res = find_challengeable()
+
+                if res:
                     logger.info("find challengeable dokan")
                     self.ui_click(self.I_CENTER_CHALLENGE, self.I_CHALLENGE_ENSURE, interval=1)
                     self.ui_click_until_disappear(self.I_CHALLENGE_ENSURE, interval=1)
@@ -798,6 +890,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
        """
         res_list = []
         while 1:
+            # 超过屏幕高度和宽度
             if (item.roi_back[0] + item.roi_back[2] > (1280 + offset[2])) or (
                     item.roi_back[1] + item.roi_back[3] > (720 + offset[3])):
                 break
