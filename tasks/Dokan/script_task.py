@@ -311,8 +311,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
         # 保持好习惯，一个任务结束了就返回到庭院，方便下一任务的开始
         self.goto_main()
 
-        # self.next_run(skip_today=False, is_dokan_activated=is_dokan_activated)
-        self.next_run_test(skip_today=False, is_dokan_activated=is_dokan_activated)
+        self.next_run(skip_today=False, is_dokan_activated=is_dokan_activated)
         raise TaskEnd
 
     def dokan_battle_1(self, cfg: Dokan, count=None):
@@ -958,42 +957,6 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
         # back to dokan
         from tasks.GameUi.assets import GameUiAssets as gua
         self.ui_click_until_disappear(gua.I_BACK_Y, interval=2)
-
-
-
-    def next_run_test(self, skip_today=False, is_dokan_activated=False):
-        """
-            设置下次运行时间（测试）
-            每天挑战一次道馆，
-                无论成功还是失败，按照success_interval和failure_interval设置的时间间隔下次执行，如果设置强制时间间隔，则按照强制时间间隔下次执行
-            每天挑战两次道馆，
-                第一次道馆结束后，
-                    无论成功还是失败，按照failure_interval设置的时间间隔下次执行；忽略强制执行时间间隔
-                第二次道馆结束后，
-                    无论成功还是失败，按照success_interval设置的时间间隔下次执行，如果设置强制时间间隔，则按照强制时间间隔下次执行
-        @param skip_today: 是否跳过今天,True->当作当天的道馆已成功打掉,False->无效
-                            为了跳过周五->周天(保留原始逻辑)
-        @is_dokan_activated: 道馆是否已开启,True->当作成功完成道馆,False->当作道馆任务失败
-        """
-        if skip_today:
-            self.set_next_run(task="Dokan", finish=False, success=True, server=True)
-            return
-        
-        # 每日只打一次道馆逻辑
-        if self.config.dokan.attack_count_config.daily_attack_count == 1:
-            self.set_next_run(task="Dokan", finish=False, success=is_dokan_activated, server=True)
-            return
-        
-        # 每日打两次道馆
-        if self.config.dokan.attack_count_config.daily_attack_count == 2:
-            # 第一次道馆结束后,无论成功还是失败,按照配置的failure_interval时间间隔下次执行，忽略强制执行时间间隔
-            if self.config.dokan.attack_count_config.remain_attack_count == 1:
-                self.set_next_run(task="Dokan", finish=False, success=False, server=False)
-                return
-            # 第二次道馆结束后,无论成功还是失败,按照success_interval时间间隔下次执行;如果设置强制时间间隔,则按照强制时间间隔下次执行
-            if self.config.dokan.attack_count_config.remain_attack_count == 0:
-                self.set_next_run(task="Dokan", finish=False, success=is_dokan_activated, server=True)
-                return
 
     def next_run(self, skip_today=False, is_dokan_activated=False):
         """
