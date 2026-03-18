@@ -412,22 +412,28 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             self.want_strategy_excluding.append(info_wq_list[0])
 
     def challenge(self, goto_btn, num):
-        if not self.appear(goto_btn):
-            return
-        self.ui_click(goto_btn, self.I_WQC_FIRE)
-        self.ui_click(self.I_WQC_UNLOCK, self.I_WQC_LOCK)
-        self.ui_click_until_disappear(self.I_WQC_FIRE)
+        if not self.ui_click(goto_btn, self.I_WQC_FIRE, timeout=4):
+            return False
+        if not self.ui_click(self.I_WQC_UNLOCK, self.I_WQC_LOCK, timeout=4):
+            return False
+        if self.appear(self.I_WQC_FIRE):
+            self.ui_click_until_disappear(self.I_WQC_FIRE)
+        else:
+            return False
         # 锁定阵容进入战斗
         wq_config = GeneralBattleConfig(lock_team_enable=True)
         self.run_general_battle(config=wq_config)
-        self.wait_until_appear(self.I_WQC_FIRE, wait_time=4)
-        self.ui_click_until_disappear(self.I_UI_BACK_RED)
-        # 我忘记了打完后是否需要关闭 挑战界面
+        if not self.wait_until_appear(self.I_WQC_FIRE, wait_time=4):
+            return False
+        if self.appear(self.I_UI_BACK_RED):
+            self.ui_click_until_disappear(self.I_UI_BACK_RED)
+        else:
+            return False
+        return True
 
     def secret(self, goto, num=1):
-        if not self.appear(goto):
-            return
-        self.ui_click(goto, self.I_WQSE_FIRE)
+        if not self.ui_click(goto, self.I_WQSE_FIRE):
+            return False
         for i in range(num):
             self.wait_until_appear(self.I_WQSE_FIRE)
             # self.ui_click_until_disappear(self.I_WQSE_FIRE)
