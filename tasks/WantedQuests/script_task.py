@@ -412,6 +412,8 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             self.want_strategy_excluding.append(info_wq_list[0])
 
     def challenge(self, goto_btn, num):
+        if not self.appear(goto_btn):
+            return
         self.ui_click(goto_btn, self.I_WQC_FIRE)
         self.ui_click(self.I_WQC_UNLOCK, self.I_WQC_LOCK)
         self.ui_click_until_disappear(self.I_WQC_FIRE)
@@ -423,6 +425,8 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         # 我忘记了打完后是否需要关闭 挑战界面
 
     def secret(self, goto, num=1):
+        if not self.appear(goto):
+            return
         self.ui_click(goto, self.I_WQSE_FIRE)
         for i in range(num):
             self.wait_until_appear(self.I_WQSE_FIRE)
