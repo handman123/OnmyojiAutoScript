@@ -62,20 +62,25 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         error_count = 0
         while 1:
             self.screenshot()
+            # 判断是否有悬赏任务
             if not self.is_wq_remained():
                 logger.info("no more wq remained")
                 break
+            # 判断是否存在奖赏箱（悬赏任务奖赏箱子）
             if self.appear(self.I_WQ_BOX):
                 logger.info("get reward")
                 self.ui_get_reward(self.I_WQ_BOX)
                 continue
+            # 判断是否存在奖赏箱（探索结束后出现的宝箱）
             if self.appear(self.I_TREASURE_BOX_CLICK):
                 logger.info("get treasure")
                 self.ui_get_reward(self.I_TREASURE_BOX_CLICK)
                 continue
+            # 出错次数大于3次就退出，防止死循环
             if error_count > 3:
                 logger.warning('failed too many times, exit')
                 break
+            # 获取悬赏任务信息，cu-当前完成数量 re-需要完成数量 total-总数量 area-任务位置
             cu, re, total, area = self.find_wq(self.device.image)
             if re == -1:
                 error_count += 1
@@ -710,6 +715,7 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             return [x, y, w, h]
 
         res_list = self.O_WQ_TEXT_ALL.detect_and_ocr(img)
+        logger.info(f"find_wq res_list {res_list}")
         import re
         reg_time = re.compile(r'^([01]?[0-9]|2[0-3]):([0-5]?[0-9]):?([0-5]?[0-9])?$')
         reg_fengyin = re.compile(r'.*[封|野]印.*')
