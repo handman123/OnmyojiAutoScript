@@ -26,12 +26,18 @@ class WQExplore(BaseExploration, HighLight):
         explore_only_boss: bool = True
         _cnt_exploration = 0
         search_fail_cnt = 0
+        done_timer = Timer(5)       # 避免死循环
+        done_timer.start()
         while 1:
             self.screenshot()
             if self.appear(self.I_UI_BACK_RED) and self.appear(self.I_E_EXPLORATION_CLICK):
                 break
             if self.appear_then_click(goto, interval=2):
+                logger.info('Goto explore')
                 continue
+            if done_timer.started() and done_timer.reached():
+                logger.warning('Goto explore timeout, exit')
+                return
 
         while 1:
             scene = self.get_current_scene(reuse_screenshot=False)
