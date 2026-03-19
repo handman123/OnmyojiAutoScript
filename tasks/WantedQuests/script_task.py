@@ -4,6 +4,7 @@
 from datetime import timedelta, time, datetime
 from time import sleep
 from typing import List
+import random
 
 import re
 import cv2
@@ -173,25 +174,39 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         raise TaskEnd('WantedQuests')
 
     def next_run(self):
+        """
+            逻辑修改，如果设置强制执行时间，则走原逻辑，否则按照悬赏刷新后时间执行
+        """
         before_end: time = self.get_config().before_end
-        if before_end == time(hour=0, minute=0, second=0):
-            self.set_next_run(task='WantedQuests', success=True, finish=True)
-            return
-        time_delta = timedelta(hours=-before_end.hour, minutes=-before_end.minute, seconds=-before_end.second)
         now_datetime = datetime.now()
         now_time = now_datetime.time()
-        if time(hour=5) <= now_time < time(hour=18):
-            # 如果是在5点到18点之间，那就设定下一次运行的时间为第二天的5点 + before_end
-            next_run_datetime = datetime.combine(now_datetime.date() + timedelta(days=1), time(hour=5))
-            next_run_datetime = next_run_datetime + time_delta
-        elif time(hour=18) <= now_time < time(hour=23, minute=59, second=59):
-            # 如果是在18点到23点59分59秒之间，那就设定下一次运行的时间为第二天的18点 + before_end
-            next_run_datetime = datetime.combine(now_datetime.date() + timedelta(days=1), time(hour=18))
-            next_run_datetime = next_run_datetime + time_delta
+        if before_end == time(hour=0, minute=0, second=0):
+            # 强制时间不生效
+            # 生成随机分钟【0-30】
+            random_minute = random.randint(0, 30)
+            if time(hour=5) <= now_time < time(hour=18):
+                # 如果是在5点到18点之间，那就设定下一次运行的时间为今天的18点 + random分钟
+                next_run_datetime = datetime.combine(now_datetime.date(), time(hour=18, minute=random_minute))
+            elif time(hour=18) <= now_time < time(hour=23, minute=59, second=59):
+                # 如果是在18点到23点59分59秒之间，那就设定下一次运行的时间为第二天的9点 + random分钟
+                next_run_datetime = datetime.combine(now_datetime.date() + timedelta(days=1), time(hour=9, minute=random_minute))
+            else:
+                # 如果是在0点到5点之间，那就设定下次运行时间为今天的九点 + random分钟
+                next_run_datetime = datetime.combine(now_datetime.date(), time(hour=9, minute=random_minute))
         else:
-            # 如果是在0点到5点之间，那就设定下一次运行的时间为今天的18点 + before_end
-            next_run_datetime = datetime.combine(now_datetime.date(), time(hour=18))
-            next_run_datetime = next_run_datetime + time_delta
+            time_delta = timedelta(hours=-before_end.hour, minutes=-before_end.minute, seconds=-before_end.second)
+            if time(hour=5) <= now_time < time(hour=18):
+                # 如果是在5点到18点之间，那就设定下一次运行的时间为第二天的5点 + before_end
+                next_run_datetime = datetime.combine(now_datetime.date() + timedelta(days=1), time(hour=5))
+                next_run_datetime = next_run_datetime + time_delta
+            elif time(hour=18) <= now_time < time(hour=23, minute=59, second=59):
+                # 如果是在18点到23点59分59秒之间，那就设定下一次运行的时间为第二天的18点 + before_end
+                next_run_datetime = datetime.combine(now_datetime.date() + timedelta(days=1), time(hour=18))
+                next_run_datetime = next_run_datetime + time_delta
+            else:
+                # 如果是在0点到5点之间，那就设定下一次运行的时间为今天的18点 + before_end
+                next_run_datetime = datetime.combine(now_datetime.date(), time(hour=18))
+                next_run_datetime = next_run_datetime + time_delta
         self.set_next_run(task='WantedQuests', target=next_run_datetime)
 
     def pre_work(self):
