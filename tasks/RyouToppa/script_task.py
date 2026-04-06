@@ -110,6 +110,16 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
             if self.appear(self.I_REAL_RAID_REFRESH, threshold=0.8):
                 if self.appear_then_click(self.I_RYOU_TOPPA, interval=1):
                     continue
+            # 是否21点后开始
+            elif self.config.ryou_toppa.raid_config.start_after_21:
+                # 晚上九点之后，或者第二天凌晨4点之前
+                if datetime.now().hour >= 21 or datetime.now().hour <= 4:
+                    logger.info("It's after 21:00, start RyouToppa.")
+                else:
+                    logger.info("It's before 21:00, try again after 21:00.")
+                    target_time = datetime.now().replace(hour=21, minute=0, second=0, microsecond=0)
+                    self.set_next_run(task='RyouToppa', finish=True, server=False, target=target_time)
+                    raise TaskEnd
             # 攻破阴阳寮，说明寮突已开，则退出
             elif self.appear(self.I_SUCCESS_PENETRATION, threshold=0.8):
                 ryou_toppa_start_flag = True
@@ -182,14 +192,53 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
                     self.flush_area_cache()
                 continue
 
-
         # 回 page_main 失败
         # self.ui_current = page_ryou_toppa
         # self.ui_goto(page_main)
-        if success:
-            self.set_next_run(task='RyouToppa', finish=True, server=True, success=True)
+        self.handle_ryou_toppa_schedule(success)
+        raise TaskEnd
+    
+    def handle_ryou_toppa_schedule(self, success):
+        """
+        处理 RyouToppa 任务的调度逻辑
+        :param success: 任务是否成功执行
+        """
+        config = self.config.ryou_toppa
+        if not config.raid_config.start_after_21:
+            # 如果不需要在21点后启动，直接设置下次执行（根据成功/失败状态）
+            self.set_next_run(
+                task='RyouToppa',
+                finish=True,
+                server=True,
+                success=success
+            )
+            raise TaskEnd
+
+        current_hour = datetime.now().hour
+        is_after_21 = current_hour >= 21
+
+        if success or is_after_21:
+            # 成功执行 或 当前时间≥21点：直接标记为完成
+            self.set_next_run(
+                task='RyouToppa',
+                finish=True,
+                server=True,
+                success=success
+            )
         else:
-            self.set_next_run(task='RyouToppa', finish=True, server=True, success=False)
+            # 失败且当前时间<21点：按配置的下次时间重新调度
+            next_run_time = config.scheduler.next_run_time
+            target_time = datetime.now().replace(
+                hour=next_run_time.hour,
+                minute=next_run_time.minute,
+                second=next_run_time.second
+            )
+            self.set_next_run(
+                task='RyouToppa',
+                finish=True,
+                server=False,
+                target=target_time
+            )
         raise TaskEnd
 
     def plan_tomorrow_ryoutoppa(self):
