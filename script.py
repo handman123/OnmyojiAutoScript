@@ -491,6 +491,12 @@ class Script:
                 del_cached_property(self, 'config')
                 continue
 
+            if self._emulator_down:
+                self.device = self.device()
+                self._emulator_down = False
+            else:                
+                _ = self.device # 使用缓存
+
             # Run
             logger.info(f'Scheduler: Start task `{task}`')
             self.device.stuck_record_clear()
