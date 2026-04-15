@@ -503,7 +503,7 @@ class Script:
                 continue
 
             if self._emulator_down:
-                self.device = Device(self.config)
+                self.device = self.device()
                 self._emulator_down = False
             else:                
                 _ = self.device # 使用缓存
