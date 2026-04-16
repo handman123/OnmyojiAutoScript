@@ -1462,8 +1462,10 @@
       "min_bounty": 0,
       "find_dokan_refresh_count": 7,
       "switch_preset_enable": false,
+      "zombie_mode": false,
       "preset_group_1": "",
       "preset_group_2": "",
+      "preset_group_3": "",
       "green_mark_shikigami_name": ""
     },
     "general_battle_config": {

@@ -160,9 +160,14 @@ class DokanConfig(BaseModel):
     preset_group_1: str = Field(default="", description='preset_group_1_help')
     # 挂机阵容
     preset_group_2: str = Field(default="", description='preset_group_2_help')
+    # 僵尸寮进攻阵容
+    preset_group_3: str = Field(default="", description='preset_group_3_help')
 
     # 按式神名字绿标，多个名字用“,”分隔
     green_mark_shikigami_name: str = Field(default="", description='green_mark_shikigami_name_help')
+
+    # 僵尸寮模式
+    zombie_mode: bool = Field(default=False, description='zombie_mode_help')
 
     def parse_preset_group(self, value: str):
         re_str = r"([1-7])\,([1-5])"

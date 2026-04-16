@@ -4,6 +4,7 @@
 from datetime import timedelta, time, datetime
 from time import sleep
 from typing import List
+import random
 
 import re
 import cv2
@@ -62,20 +63,25 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         error_count = 0
         while 1:
             self.screenshot()
+            # 判断是否有悬赏任务
             if not self.is_wq_remained():
                 logger.info("no more wq remained")
                 break
+            # 判断是否存在奖赏箱（悬赏任务奖赏箱子）
             if self.appear(self.I_WQ_BOX):
                 logger.info("get reward")
                 self.ui_get_reward(self.I_WQ_BOX)
                 continue
+            # 判断是否存在奖赏箱（探索结束后出现的宝箱）
             if self.appear(self.I_TREASURE_BOX_CLICK):
                 logger.info("get treasure")
                 self.ui_get_reward(self.I_TREASURE_BOX_CLICK)
                 continue
+            # 出错次数大于3次就退出，防止死循环
             if error_count > 3:
                 logger.warning('failed too many times, exit')
                 break
+            # 获取悬赏任务信息，cu-当前完成数量 re-需要完成数量 total-总数量 area-任务位置
             cu, re, total, area = self.find_wq(self.device.image)
             if re == -1:
                 error_count += 1
@@ -168,25 +174,39 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         raise TaskEnd('WantedQuests')
 
     def next_run(self):
+        """
+            逻辑修改，如果设置强制执行时间，则走原逻辑，否则按照悬赏刷新后时间执行
+        """
         before_end: time = self.get_config().before_end
-        if before_end == time(hour=0, minute=0, second=0):
-            self.set_next_run(task='WantedQuests', success=True, finish=True)
-            return
-        time_delta = timedelta(hours=-before_end.hour, minutes=-before_end.minute, seconds=-before_end.second)
         now_datetime = datetime.now()
         now_time = now_datetime.time()
-        if time(hour=5) <= now_time < time(hour=18):
-            # 如果是在5点到18点之间，那就设定下一次运行的时间为第二天的5点 + before_end
-            next_run_datetime = datetime.combine(now_datetime.date() + timedelta(days=1), time(hour=5))
-            next_run_datetime = next_run_datetime + time_delta
-        elif time(hour=18) <= now_time < time(hour=23, minute=59, second=59):
-            # 如果是在18点到23点59分59秒之间，那就设定下一次运行的时间为第二天的18点 + before_end
-            next_run_datetime = datetime.combine(now_datetime.date() + timedelta(days=1), time(hour=18))
-            next_run_datetime = next_run_datetime + time_delta
+        if before_end == time(hour=0, minute=0, second=0):
+            # 强制时间不生效
+            # 生成随机分钟【0-30】
+            random_minute = random.randint(0, 30)
+            if time(hour=5) <= now_time < time(hour=18):
+                # 如果是在5点到18点之间，那就设定下一次运行的时间为今天的18点 + random分钟
+                next_run_datetime = datetime.combine(now_datetime.date(), time(hour=18, minute=random_minute))
+            elif time(hour=18) <= now_time < time(hour=23, minute=59, second=59):
+                # 如果是在18点到23点59分59秒之间，那就设定下一次运行的时间为第二天的9点 + random分钟
+                next_run_datetime = datetime.combine(now_datetime.date() + timedelta(days=1), time(hour=9, minute=random_minute))
+            else:
+                # 如果是在0点到5点之间，那就设定下次运行时间为今天的九点 + random分钟
+                next_run_datetime = datetime.combine(now_datetime.date(), time(hour=9, minute=random_minute))
         else:
-            # 如果是在0点到5点之间，那就设定下一次运行的时间为今天的18点 + before_end
-            next_run_datetime = datetime.combine(now_datetime.date(), time(hour=18))
-            next_run_datetime = next_run_datetime + time_delta
+            time_delta = timedelta(hours=-before_end.hour, minutes=-before_end.minute, seconds=-before_end.second)
+            if time(hour=5) <= now_time < time(hour=18):
+                # 如果是在5点到18点之间，那就设定下一次运行的时间为第二天的5点 + before_end
+                next_run_datetime = datetime.combine(now_datetime.date() + timedelta(days=1), time(hour=5))
+                next_run_datetime = next_run_datetime + time_delta
+            elif time(hour=18) <= now_time < time(hour=23, minute=59, second=59):
+                # 如果是在18点到23点59分59秒之间，那就设定下一次运行的时间为第二天的18点 + before_end
+                next_run_datetime = datetime.combine(now_datetime.date() + timedelta(days=1), time(hour=18))
+                next_run_datetime = next_run_datetime + time_delta
+            else:
+                # 如果是在0点到5点之间，那就设定下一次运行的时间为今天的18点 + before_end
+                next_run_datetime = datetime.combine(now_datetime.date(), time(hour=18))
+                next_run_datetime = next_run_datetime + time_delta
         self.set_next_run(task='WantedQuests', target=next_run_datetime)
 
     def pre_work(self):
@@ -407,18 +427,28 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             self.want_strategy_excluding.append(info_wq_list[0])
 
     def challenge(self, goto_btn, num):
-        self.ui_click(goto_btn, self.I_WQC_FIRE)
-        self.ui_click(self.I_WQC_UNLOCK, self.I_WQC_LOCK)
-        self.ui_click_until_disappear(self.I_WQC_FIRE)
+        if not self.ui_click(goto_btn, self.I_WQC_FIRE, timeout=4):
+            return False
+        if not self.ui_click(self.I_WQC_UNLOCK, self.I_WQC_LOCK, timeout=4):
+            return False
+        if self.appear(self.I_WQC_FIRE):
+            self.ui_click_until_disappear(self.I_WQC_FIRE)
+        else:
+            return False
         # 锁定阵容进入战斗
         wq_config = GeneralBattleConfig(lock_team_enable=True)
         self.run_general_battle(config=wq_config)
-        self.wait_until_appear(self.I_WQC_FIRE, wait_time=4)
-        self.ui_click_until_disappear(self.I_UI_BACK_RED)
-        # 我忘记了打完后是否需要关闭 挑战界面
+        if not self.wait_until_appear(self.I_WQC_FIRE, wait_time=4):
+            return False
+        if self.appear(self.I_UI_BACK_RED):
+            self.ui_click_until_disappear(self.I_UI_BACK_RED)
+        else:
+            return False
+        return True
 
     def secret(self, goto, num=1):
-        self.ui_click(goto, self.I_WQSE_FIRE)
+        if not self.ui_click(goto, self.I_WQSE_FIRE):
+            return False
         for i in range(num):
             self.wait_until_appear(self.I_WQSE_FIRE)
             # self.ui_click_until_disappear(self.I_WQSE_FIRE)
@@ -710,6 +740,7 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             return [x, y, w, h]
 
         res_list = self.O_WQ_TEXT_ALL.detect_and_ocr(img)
+        logger.info(f"find_wq res_list {res_list}")
         import re
         reg_time = re.compile(r'^([01]?[0-9]|2[0-3]):([0-5]?[0-9]):?([0-5]?[0-9])?$')
         reg_fengyin = re.compile(r'.*[封|野]印.*')
