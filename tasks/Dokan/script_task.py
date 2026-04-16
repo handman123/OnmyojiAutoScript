@@ -42,8 +42,6 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
     team_switched: bool = False
     green_mark_done: bool = False
     switch_soul_done: bool = False
-    dokan_created: bool = False
-    foound_zombie_dokan: bool = False
 
     @cached_property
     def _attack_priorities(self) -> list:
@@ -130,6 +128,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
 
             # 场景状态：寻找合适道馆中
             if current_scene == DokanScene.RYOU_DOKAN_SCENE_FINDING_DOKAN:
+
                 # 更新可挑战次数 可挑战次数为<=0,当作道馆成功完成
                 count = self.update_remain_attack_count()
                 if count <= 0:
@@ -141,16 +140,12 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                 if not try_start_dokan:
                     is_dokan_activated = False
                     break
-                # 检查道馆是否开启
-                self.is_dokan_created(current_scene)
-                # 尝试开启道馆
-                if not self.dokan_created:
-                    logger.info("Dokan is not created, try to creat dokan...")
+                # NOTE 只在周一尝试建立道馆
+                if datetime.now().weekday() == 0:
                     self.creat_dokan()
 
                 # 寻找合适道馆,找不到直接退出
                 if not self.find_dokan(self.config.dokan.dokan_config.find_dokan_score):
-                    logger.info("can not find suitable dokan, exit")
                     is_dokan_activated = False
                     break
                 # 寻找到道馆后等一会页面刷新
@@ -251,15 +246,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                 continue
             # 场景状态：进入战斗，待开始
             if current_scene == DokanScene.RYOU_DOKAN_SCENE_IN_FIELD:
-                is_zombie_mode = cfg.dokan_config.zombie_mode
-                # 开启且找到福利寮
-                if is_zombie_mode and self.foound_zombie_dokan:
-                    logger.info("found zombie dokan, read attack team configuration for zombie dokan")
-                    group, team = cfg.dokan_config.parse_preset_group(cfg.dokan_config.preset_group_3)
-                else:
-                    logger.info("found normal dokan, read attack team configuration for normal dokan")
-                    group, team = cfg.dokan_config.parse_preset_group(cfg.dokan_config.preset_group_1)
-                
+                group, team = cfg.dokan_config.parse_preset_group(cfg.dokan_config.preset_group_1)
                 if cfg.dokan_config.switch_preset_enable and group:
                     logger.info(f"Normal Battle:switch_preset_team{group},{team}")
                     self.switch_preset_team(cfg.dokan_config.switch_preset_enable, group, team)
@@ -306,7 +293,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                 logger.info("Dokan challenge finished, exit Dokan")
                 # 更新配置
                 self.update_remain_attack_count()
-                self.foound_zombie_dokan = False
+
                 break
 
             logger.info(f"scene Without handler, skipped")
@@ -320,7 +307,7 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
         # 保持好习惯，一个任务结束了就返回到庭院，方便下一任务的开始
         self.goto_main()
 
-        self.next_run_test(skip_today=False, is_dokan_activated=is_dokan_activated)
+        self.next_run(skip_today=False, is_dokan_activated=is_dokan_activated)
         raise TaskEnd
 
     def dokan_battle_1(self, cfg: Dokan, count=None):
@@ -586,8 +573,6 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
     
         返回:
         bool: 是否找到了符合条件的道馆并进行挑战。
-
-        修改说明：原本的find_challengeable()方法逻辑过于复杂，从中提取出公共部分，并增加寻找僵尸寮功能
         """
 
         #
@@ -600,76 +585,13 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
         # 刷新按钮点击次数
         num_fresh = 0
         # 备份一些重要的ROI区域，以便在循环中恢复
-        backup = {
-            'i_point_bounty': self.I_RIGHTPAD_POINT_BOUNTY.roi_back,
-            # 'o_dokan_rightpad_bounty':self.O_DOKAN_RIGHTPAD_BOUNTY.roi,
-            'i_point_people_num': self.I_CENTER_POINT_PEOPLE_NUMBER.roi_back,
-            "i_xxz_dokan": self.I_RYOU_DOKAN_XXZ_DOKAN.roi_back
-        }
+        backup = {'i_point_bounty': self.I_RIGHTPAD_POINT_BOUNTY.roi_back,
+                  # 'o_dokan_rightpad_bounty':self.O_DOKAN_RIGHTPAD_BOUNTY.roi,
+                  'i_point_people_num': self.I_CENTER_POINT_PEOPLE_NUMBER.roi_back}
 
         def restore_roi():
             self.I_RIGHTPAD_POINT_BOUNTY.roi_back = backup['i_point_bounty']
             self.I_CENTER_POINT_PEOPLE_NUMBER.roi_back = backup['i_point_people_num']
-            self.I_RYOU_DOKAN_XXZ_DOKAN.roi_back = backup['i_xxz_dokan']
-
-        def _extract_bounty(item, offset):
-            """从道馆区域，提取赏金"""
-            self.screenshot()
-            self.O_DOKAN_RIGHTPAD_BOUNTY.roi = self.position_offset(item, offset)
-            bounty = self.O_DOKAN_RIGHTPAD_BOUNTY.ocr(self.device.image)
-            tmp = re.search(r'(\d+)', bounty)
-            if not tmp:
-                logger.warning(f"can't find bounty,item = {item},ocr bounty={bounty}")
-                return None
-            return float(tmp.group())
-
-        def _extract_people_num():
-            """提取当前选中道馆的防守人数"""
-            self.screenshot()
-            if not self.appear(self.I_CENTER_POINT_PEOPLE_NUMBER):
-                logger.warning("未找到人数标志")
-                return None
-            self.O_DOKAN_CENTER_PEOPLE_NUMBER.roi = self.position_offset(
-                self.I_CENTER_POINT_PEOPLE_NUMBER.roi_front,
-                (0, 0, 0, 30)
-            )
-            people_text = self.O_DOKAN_CENTER_PEOPLE_NUMBER.detect_text(self.device.image)
-            match = re.search(r'(\d+)', people_text)
-            if not match:
-                logger.warning(f"无法识别人数，OCR结果={people_text}")
-                return None
-            return float(match.group())
-        
-        def _click_dokan_and_wait(item, target, offset):
-            """点击道馆并等待挑战按钮，返回布尔值"""
-            # 扩大点击区域
-            target.roi_back = self.position_offset(item, offset)
-            return self.ui_click_until_appear_or_timeout(
-                target,
-                self.I_CENTER_CHALLENGE,
-                interval=1.5,
-                timeout=8
-            )
-        
-        def _is_dokan_qualified(bounty, people_num, score_threshold):
-            """判断道馆是否符合常规条件"""
-            item_score = bounty / people_num
-            if item_score < 1.5:
-                logger.info("分数过低，可能OCR错误")
-                return False
-            if item_score > score_threshold:
-                logger.info(f"分数 {item_score} 高于阈值 {score_threshold}")
-                return False
-            if people_num < self.config.dokan.dokan_config.min_people_num:
-                logger.info("人数太少")
-                return False
-            if bounty < self.config.dokan.dokan_config.min_bounty:
-                logger.info("赏金太少")
-                return False
-            if not self.appear(self.I_CENTER_GUANZHU_XIUXI):
-                logger.info("馆主不是修习等级")
-                return False
-            return True
 
         def find_challengeable(ignore_score=False):
             """
@@ -701,29 +623,59 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                     self.wait_animate_stable(self.C_DOKAN_CANCEL_SELECT_DOKAN_CHECK_ANIMATE, interval=0.5, timeout=1.5)
 
                 # 获取赏金金额
-                bounty = _extract_bounty(item, (0, 0, 100, 0))
-
-                # 点击道馆并等待挑战按钮，返回布尔值
-                if not _click_dokan_and_wait(item, self.I_RIGHTPAD_POINT_BOUNTY, (-10, -10, 20, 20)):
+                self.O_DOKAN_RIGHTPAD_BOUNTY.roi = self.position_offset(item, (0, 0, 100, 0))
+                bounty = self.O_DOKAN_RIGHTPAD_BOUNTY.ocr(self.device.image)
+                tmp = re.search(r'(\d+)', bounty)
+                if not tmp:
+                    logger.warning(f"can't find bounty,item = {item},ocr bounty={bounty}")
+                    continue
+                bounty = float(tmp.group())
+                # 扩大搜索区域,防止找不到
+                self.I_RIGHTPAD_POINT_BOUNTY.roi_back = self.position_offset(item, (-10, -10, 20, 20))
+                # Note: 道馆不可挑战时(被别的寮打了),8秒后跳过
+                if not self.ui_click_until_appear_or_timeout(self.I_RIGHTPAD_POINT_BOUNTY, self.I_CENTER_CHALLENGE,
+                                                             interval=1.5, timeout=8):
                     logger.info(f"can't find challenge button,idx={idx} item={item}")
+                    # 道馆不可挑战,挑战按钮不会弹出 ,直接进行下一个
                     continue
-
                 # 获取防守人数
-                p_num = _extract_people_num()
-                if p_num is None:
+                self.screenshot()
+                if not self.appear(self.I_CENTER_POINT_PEOPLE_NUMBER):
+                    logger.warning(f"can't find point people number image, item={item}")
                     continue
+                self.O_DOKAN_CENTER_PEOPLE_NUMBER.roi = self.position_offset(
+                    self.I_CENTER_POINT_PEOPLE_NUMBER.roi_front,
+                    (0, 0, 0, 30))
+                p_num = self.O_DOKAN_CENTER_PEOPLE_NUMBER.detect_text(self.device.image)
+                tmp = re.search(r"(\d+)", p_num)
+                if not tmp:
+                    logger.warning(f"can't find people number in ocr result,item={item}, p_num={p_num}")
+                    continue
+                p_num = float(tmp.group())
+
+                logger.info(f"==================="
+                            f"bounty:{bounty},people_num:{p_num},score:{bounty / p_num}"
+                            f"===================")
 
                 item_score = bounty / p_num
-                logger.info(f"bounty:{bounty},people_num:{p_num},score:{item_score}")
-                
                 if item_score < min_score:
                     min_score = item_score
                     idx_selected = idx
-                
-                if _is_dokan_qualified(bounty, p_num, score):
-                    logger.info(f"find_dokan: bounty:{bounty},people_num:{p_num},score:{item_score}")
-                    return True
-                
+                # 大于系数 或者 系数过小(文字识别错误导致)
+                if item_score > score or item_score < 1.5:
+                    logger.info("click to making challenge disappear")
+                    continue
+                if p_num < self.config.dokan.dokan_config.min_people_num:
+                    logger.info("people num too small")
+                    continue
+                if bounty < self.config.dokan.dokan_config.min_bounty:
+                    logger.info("bounty too small")
+                    continue
+                # 馆主不是修习等级的
+                if not self.appear(self.I_CENTER_GUANZHU_XIUXI):
+                    continue
+                logger.info(f"find_dokan: bounty:{bounty},people_num:{p_num},score:{bounty / p_num}")
+                return True
             # 在所有列表中都没有符合的,且忽略系数限制,那么就选择最低分数的那个,点击显示挑战按钮
             if ignore_score:
                 x, y, w, h = bounty_list[idx_selected]
@@ -735,60 +687,10 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
                     sleep(0.5)
             return False
 
-        def find_zombie():
-            """查找僵尸寮"""
-            restore_roi()
-            self.screenshot()
-            xxz_list = self.find_all_element(self.I_RYOU_DOKAN_XXZ_DOKAN, (0, 0, 0, self.I_RYOU_DOKAN_XXZ_DOKAN.roi_back[3]))
-            logger.info(f'find elements list:{xxz_list}')
-
-            if not xxz_list:
-                logger.info("can't find any zombie dokan")
-                return False
-            
-            for idx, item in enumerate(xxz_list):
-                self.device.click_record_clear()
-                logger.info(f"------start no.{idx} =={item}-----------")
-
-                # 点击使挑战按钮消失的区域(C_DOKAN_CANCEL_SELECT_DOKAN), 点击可能点击到其他寮,
-                # 因此需要在此处多点几次,直到挑战按钮消失,
-                # 又因为出现挑战按钮动画时长较长,因此需要耗时
-                self.screenshot()
-                while self.appear(self.I_CENTER_CHALLENGE):
-                    self.click(self.C_DOKAN_CANCEL_SELECT_DOKAN, interval=1.5)
-                    self.wait_animate_stable(self.C_DOKAN_CANCEL_SELECT_DOKAN_CHECK_ANIMATE, interval=0.5, timeout=1.5)
-                
-                # 简单判断僵尸寮，避免遇到刺客
-                # 人数大于100，赏金低于800w
-                # 获取赏金金额
-                bounty = _extract_bounty(item, (0, 40, 20, 0))
-
-                # 点击道馆并等待挑战按钮，返回布尔值
-                if not _click_dokan_and_wait(item, self.I_RYOU_DOKAN_XXZ_DOKAN, (0, 0, 0, 0)):
-                    logger.info(f"can't find challenge button,idx={idx} item={item}")
-                    continue
-
-                # 获取防守人数
-                p_num = _extract_people_num()
-                if p_num is None:
-                    continue
-                
-                logger.info("bounty:{bounty},people_num:{p_num}")
-                if p_num > 90 and bounty < 800:
-                    logger.info(f"find zombie dokan: bounty:{bounty},people_num:{p_num}")
-                    self.foound_zombie_dokan = True
-                    return True
-            return False
-
         while num_fresh < self.config.dokan.dokan_config.find_dokan_refresh_count:
             for i in range(3):
                 sleep(3)
-                if self.config.dokan.dokan_config.zombie_mode:
-                    res = find_zombie()
-                else:
-                    res = find_challengeable()
-
-                if res:
+                if find_challengeable():
                     logger.info("find challengeable dokan")
                     self.ui_click(self.I_CENTER_CHALLENGE, self.I_CHALLENGE_ENSURE, interval=1)
                     self.ui_click_until_disappear(self.I_CHALLENGE_ENSURE, interval=1)
@@ -818,43 +720,6 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
             self.config.dokan.attack_count_config.del_attack_count(1, self.config.save)
             return True
         return False
-
-
-    def is_dokan_created(self, current_scense):
-        """
-            判断道馆是否创建成功
-
-        """
-        logger.info("into is_dokan_created method")
-        if current_scense != DokanScene.RYOU_DOKAN_SCENE_FINDING_DOKAN:
-            return
-        if self.dokan_created:
-            return
-        # 判断道馆信息界面是否出现,出现了就说明创建成功了
-        while True:
-            logger.info("check if dokan is created...")
-            self.screenshot()
-            # 点击我的道馆界面
-            if self.appear(self.I_RYOU_DOKAN_MINE_DOKAN, interval=2):
-                self.ui_click_until_disappear(self.I_RYOU_DOKAN_MINE_DOKAN)
-                logger.info("Enter my dokan")
-                continue
-            
-            # 进入我的道馆界面
-            if self.appear(self.I_RYOU_DOKAN_MINE_DOKAN_TEAM_COMPOSITION):
-                if self.appear(self.I_RYOU_DOKAN_UNBUILT):
-                    self.dokan_created = False
-                    logger.info("Dokan is not created")
-                else:
-                    self.dokan_created = True
-                    logger.info("Dokan is created")
-                if self.appear(self.I_RYOU_DOKAN_DOKAN_INFO_CLOSE, interval=2):
-                    self.ui_click_until_disappear(self.I_RYOU_DOKAN_DOKAN_INFO_CLOSE)
-                    logger.info("close my dokan info")
-                break
-            break
-        logger.info(f"exit is_dokan_created method, dokan_created status={self.dokan_created}")
-
 
     def creat_dokan(self):
         # 点击创建道馆
@@ -892,7 +757,6 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
        """
         res_list = []
         while 1:
-            # 超过屏幕高度和宽度
             if (item.roi_back[0] + item.roi_back[2] > (1280 + offset[2])) or (
                     item.roi_back[1] + item.roi_back[3] > (720 + offset[3])):
                 break
@@ -1033,12 +897,6 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
     def switch_soul_in_dokan(self):
         if self.switch_soul_done:
             return
-        
-        # 道馆界面切换式神,如果配置里不开启,或者不开启按名字切换,就不打开式神录
-        if not self.config.dokan.switch_soul_config.enable and not self.config.dokan.switch_soul_config.enable_switch_by_name:
-            self.switch_soul_done = True
-            return
-        
         logger.info("start switch soul...")
         self.ui_click_until_disappear(self.I_RYOU_DOKAN_SHIKIGAMI, interval=2)
 
@@ -1052,41 +910,6 @@ class ScriptTask(ExtendGreenMark, GameUi, SwitchSoul, DokanSceneDetector):
         # back to dokan
         from tasks.GameUi.assets import GameUiAssets as gua
         self.ui_click_until_disappear(gua.I_BACK_Y, interval=2)
-
-    def next_run_test(self, skip_today=False, is_dokan_activated=False):
-        """
-            设置下次运行时间（测试）
-            每天挑战一次道馆，
-                无论成功还是失败，按照success_interval和failure_interval设置的时间间隔下次执行，如果设置强制时间间隔，则按照强制时间间隔下次执行
-            每天挑战两次道馆，
-                第一次道馆结束后，
-                    无论成功还是失败，按照failure_interval设置的时间间隔下次执行；忽略强制执行时间间隔
-                第二次道馆结束后，
-                    无论成功还是失败，按照success_interval设置的时间间隔下次执行，如果设置强制时间间隔，则按照强制时间间隔下次执行
-        @param skip_today: 是否跳过今天,True->当作当天的道馆已成功打掉,False->无效
-                            为了跳过周五->周天(保留原始逻辑)
-        @is_dokan_activated: 道馆是否已开启,True->当作成功完成道馆,False->当作道馆任务失败
-        """
-        if skip_today:
-            self.set_next_run(task="Dokan", finish=False, success=True, server=True)
-            return
-        
-        # 每日只打一次道馆逻辑
-        if self.config.dokan.attack_count_config.daily_attack_count == 1:
-            self.set_next_run(task="Dokan", finish=False, success=is_dokan_activated, server=True)
-            return
-        
-        # 每日打两次道馆
-        if self.config.dokan.attack_count_config.daily_attack_count == 2:
-            # 第一次道馆结束后,无论成功还是失败,按照配置的failure_interval时间间隔下次执行，忽略强制执行时间间隔
-            if self.config.dokan.attack_count_config.remain_attack_count == 1:
-                self.set_next_run(task="Dokan", finish=False, success=False, server=False)
-                return
-            # 第二次道馆结束后,无论成功还是失败,按照success_interval时间间隔下次执行;如果设置强制时间间隔,则按照强制时间间隔下次执行
-            if self.config.dokan.attack_count_config.remain_attack_count == 0:
-                self.set_next_run(task="Dokan", finish=False, success=True, server=True)
-                return
-
 
     def next_run(self, skip_today=False, is_dokan_activated=False):
         """

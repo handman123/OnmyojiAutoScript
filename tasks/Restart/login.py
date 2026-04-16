@@ -357,7 +357,6 @@ class LoginHandler(BaseTask, RestartAssets, GameUiAssets):
                 logger.info(f'Click complete tasks {count_success} times')
                 break
             if self.appear_then_click(self.I_COMPLETE_TASKS, interval=2.3):
-                time.sleep(2)
                 count_success += 1
                 continue
         return True
