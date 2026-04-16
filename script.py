@@ -335,6 +335,17 @@ class Script:
             func = self._wait_stay_there
         return func(next_run)
 
+    def _wait_close_emulator(self, next_run: datetime) -> bool:
+        logger.info('close emulator during wait')
+        if next_run > datetime.now() + timedelta(minutes=30):
+            self.device.emulator_stop()
+            self.device.release_during_wait()
+            self._emulator_down = True
+            if not self.wait_until(next_run):
+                del_cached_property(self, 'config')
+        else:
+            self._wait_goto_main(next_run)
+
     def _wait_close_game(self, next_run: datetime) -> bool:
         logger.info("Close game during wait")
         self.device.app_stop()
