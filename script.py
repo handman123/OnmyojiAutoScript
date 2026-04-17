@@ -44,6 +44,7 @@ _log_switch_lock = threading.Lock()#线程锁
 class Script:
     def __init__(self, config_name: str ='oas') -> None:
         logger.hr('Start', level=0)
+        self._emulator_down = False
         self.server = None
         self.state_queue: Queue = None
         self.gui_update_task: Callable = None  # 回调函数, gui进程注册当每次config更新任务的时候更新gui的信息
