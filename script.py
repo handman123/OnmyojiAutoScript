@@ -329,6 +329,7 @@ class Script:
         strategy_map = {
             "close_game": self._wait_close_game,
             "goto_main": self._wait_goto_main,
+            "close_emulator": self._wait_close_emulator
         }
         func = strategy_map.get(method)
         if not func:
