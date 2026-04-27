@@ -93,10 +93,19 @@ class Device(Platform, Screenshot, Control, AppControl):
 
         if control_method in ('uiautomator2', 'window_message', 'scrcpy'):
             logger.warning(
-                f'Remote runtime policy: control method {control_method} -> ADB '
+                f'Remote runtime policy: control method {control_method} -> adb '
                 f'(serial={serial})'
             )
-            self.config.script.device.control_method = 'ADB'
+            self.config.script.device.control_method = 'adb'
+            changed = True
+
+        # Backward compatibility: recover from legacy uppercase value written by older runtime policy
+        if control_method == 'ADB':
+            logger.warning(
+                f'Remote runtime policy: normalize control method ADB -> adb '
+                f'(serial={serial})'
+            )
+            self.config.script.device.control_method = 'adb'
             changed = True
 
         if changed:
