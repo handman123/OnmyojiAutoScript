@@ -76,6 +76,9 @@ class Device(BaseModel):
     # 启动时纯后台运行模拟器，不显示窗口和任务栏
     run_background_only: bool = Field(default=False,
                                              description='模拟器无UI后台运行，关掉后重启脚本会重新显示（无需重启OAS）')
+    # 远程控制模式：跳过本机模拟器路径识别与启停逻辑，仅通过 serial 做连接
+    remote_control: bool = Field(default=False,
+                                 description='远程控制模式，仅通过设备序列号连接，不进行本机模拟器路径判定')
 
 
 

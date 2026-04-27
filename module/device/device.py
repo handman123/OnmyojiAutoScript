@@ -36,6 +36,9 @@ class Device(Platform, Screenshot, Control, AppControl):
                 super().__init__(*args, **kwargs)
                 break
             except EmulatorNotRunningError:
+                if getattr(self.config.script.device, 'remote_control', False):
+                    logger.critical('Remote control enabled but target device is not reachable via ADB')
+                    raise RequestHumanTakeover
                 if trial >= 3:
                     logger.critical('Failed to start emulator after 3 trial')
                     raise RequestHumanTakeover
@@ -50,7 +53,7 @@ class Device(Platform, Screenshot, Control, AppControl):
                     raise RequestHumanTakeover
 
         # Auto-fill emulator info
-        if IS_WINDOWS and self.config.script.device.emulatorinfo_type == 'auto':
+        if IS_WINDOWS and not self.config.script.device.remote_control and self.config.script.device.emulatorinfo_type == 'auto':
             _ = self.emulator_instance
 
         self.screenshot_interval_set()
