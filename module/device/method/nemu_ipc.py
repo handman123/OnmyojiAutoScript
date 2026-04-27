@@ -454,6 +454,10 @@ class NemuIpc():
         """
         Initialize a nemu ipc implementation
         """
+        if getattr(self.config.script.device, 'remote_control', False):
+            logger.error('NemuIpc is unavailable in remote control mode')
+            raise RequestHumanTakeover
+
         # Try existing settings first
         if self.config.script.device.emulatorinfo_path:
             folder = str(Path(self.config.script.device.emulatorinfo_path).parent.parent)
