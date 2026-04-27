@@ -1,6 +1,7 @@
 
 from collections import deque
 from datetime import datetime
+import re
 
 # Patch pkg_resources before importing adbutils and uiautomator2
 from module.device.pkg_resources import get_distribution
@@ -56,11 +57,50 @@ class Device(Platform, Screenshot, Control, AppControl):
         if IS_WINDOWS and not self.config.script.device.remote_control and self.config.script.device.emulatorinfo_type == 'auto':
             _ = self.emulator_instance
 
+        self._apply_remote_runtime_policy()
+
         self.screenshot_interval_set()
 
         # Auto-select the fastest screenshot method
         if self.config.script.device.screenshot_method == 'auto':
             self.run_simple_screenshot_benchmark()
+
+    @staticmethod
+    def _is_remote_network_serial(serial: str) -> bool:
+        serial = str(serial or '').strip()
+        if not re.match(r'^\d+\.\d+\.\d+\.\d+:\d+$', serial):
+            return False
+        return not serial.startswith('127.')
+
+    def _apply_remote_runtime_policy(self):
+        serial = getattr(self, 'serial', '')
+        is_remote_network = self._is_remote_network_serial(serial)
+        is_remote_enabled = getattr(self.config.script.device, 'remote_control', False) or is_remote_network
+        if not is_remote_enabled:
+            return
+
+        screenshot_method = self.config.script.device.screenshot_method
+        control_method = self.config.script.device.control_method
+        changed = False
+
+        if screenshot_method in ('auto', 'uiautomator2', 'window_background', 'nemu_ipc', 'scrcpy'):
+            logger.warning(
+                f'Remote runtime policy: screenshot method {screenshot_method} -> ADB '
+                f'(serial={serial})'
+            )
+            self.config.script.device.screenshot_method = 'ADB'
+            changed = True
+
+        if control_method in ('uiautomator2', 'window_message', 'scrcpy'):
+            logger.warning(
+                f'Remote runtime policy: control method {control_method} -> ADB '
+                f'(serial={serial})'
+            )
+            self.config.script.device.control_method = 'ADB'
+            changed = True
+
+        if changed:
+            self.config.save()
 
     def run_simple_screenshot_benchmark(self):
         """

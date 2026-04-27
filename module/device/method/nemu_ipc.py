@@ -1,6 +1,7 @@
 import asyncio
 import ctypes
 import os
+import re
 import sys
 from functools import partial, wraps
 from pathlib import Path
@@ -456,6 +457,12 @@ class NemuIpc():
         """
         if getattr(self.config.script.device, 'remote_control', False):
             logger.error('NemuIpc is unavailable in remote control mode')
+            raise RequestHumanTakeover
+
+        serial = str(getattr(self, 'serial', '')).strip()
+        is_network_remote = bool(re.match(r'^\d+\.\d+\.\d+\.\d+:\d+$', serial)) and not serial.startswith('127.')
+        if is_network_remote:
+            logger.error('NemuIpc is unavailable for network serial devices, please use ADB/uiautomator2 screenshot')
             raise RequestHumanTakeover
 
         # Try existing settings first

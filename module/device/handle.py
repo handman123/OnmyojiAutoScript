@@ -168,17 +168,27 @@ class Handle:
                 self.config = Config(config, task=None)
             else:
                 self.config = config
-        if not self.config.script.device.handle:
-            logger.info('Handle is empty. oas not use handle')
+
+        serial = str(getattr(self.config.script.device, 'serial', '')).strip()
+        # Auto-detect network remote device when serial is a non-localhost IP:port.
+        is_network_remote = bool(re.match(r'^\d+\.\d+\.\d+\.\d+:\d+$', serial)) and not serial.startswith('127.')
+
+        if getattr(self.config.script.device, 'remote_control', False):
+            logger.info('Remote control enabled. Skip handle initialization')
             return
-        if self.config.script.device.handle == '':
+        if is_network_remote:
+            logger.info('Network serial detected. Skip handle initialization')
+            return
+
+        handle = str(getattr(self.config.script.device, 'handle', '')).strip()
+        if not handle:
             logger.info('Handle is empty. oas not use handle')
             return
 
         # 获取根的句柄
         self.root_handle_title = ''
         self.root_handle_num = 0
-        self.root_handle = self.config.script.device.handle
+        self.root_handle = handle
         if self.root_handle == "auto":
             logger.info('Handle is auto. oas will find window emulator')
             window_list = Handle.all_windows()
