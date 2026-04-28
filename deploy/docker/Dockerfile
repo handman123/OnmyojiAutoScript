@@ -21,8 +21,7 @@ deb-src https://mirrors.cloud.tencent.com/debian/ bookworm-backports main non-fr
     "\
 > /etc/apt/sources.list\
  && apt update \
- && apt install -y git adb libgomp1 openssh-client \
- && (apt install -y prelink || true) \
+ && apt install -y git adb libgomp1 openssh-client prelink \
  && git config --global --add safe.directory '*' \
  && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
  && echo 'Asia/Shanghai' > /etc/timezone \
@@ -32,7 +31,7 @@ deb-src https://mirrors.cloud.tencent.com/debian/ bookworm-backports main non-fr
  && pip uninstall -y opencv-python\
  && pip uninstall -y opencv-python-headless\
  && pip install opencv-python-headless==4.7.0.72\
- && (command -v execstack >/dev/null && execstack -c /usr/local/lib/python3.10/site-packages/onnxruntime/capi/*.so 2>/dev/null || true) \
+ && execstack -c /usr/local/lib/python3.10/site-packages/onnxruntime/capi/*.so 2>/dev/null || true \
  && rm -f /tmp/requirements.txt /tmp/requirements_fixed.txt \
  && rm -rf ~/.cache/pip
 
