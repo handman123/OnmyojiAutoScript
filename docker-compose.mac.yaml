@@ -1,7 +1,7 @@
 services:
   OAS:
     ports:
-      - "22270:22270"
+      - "${OAS_PORT:-22267}:${OAS_PORT:-22267}"
     volumes:
       - '.:/app/OnmyojiAutoScript:rw'
     container_name: 'oas-env'
