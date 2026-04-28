@@ -44,6 +44,10 @@ _log_switch_lock = threading.Lock()#线程锁
 class Script:
     def __init__(self, config_name: str ='oas') -> None:
         logger.hr('Start', level=0)
+
+        # Wait for other instances to complete initialization
+        self._wait_for_other_instances()
+
         self._emulator_down = False
         self.server = None
         self.state_queue: Queue = None
@@ -56,6 +60,65 @@ class Script:
         self.failure_record = {}
         # 运行loop的线程
         self.loop_thread: Thread = None
+
+    def _wait_for_other_instances(self):
+        """
+        Wait for other instances to complete initialization to avoid conflicts.
+        Uses file markers instead of locks to preserve startup order.
+        """
+        import os
+        import time
+        from pathlib import Path
+
+        # Create marker directory
+        marker_dir = Path('./log/.init_markers')
+        marker_dir.mkdir(parents=True, exist_ok=True)
+
+        # Check for other initializing instances
+        max_wait = 60  # Maximum wait time: 60 seconds
+        check_interval = 0.5  # Check every 0.5 seconds
+        waited = 0
+
+        while waited < max_wait:
+            # Find all .initializing marker files
+            markers = list(marker_dir.glob('*.initializing'))
+            if not markers:
+                # No other instances initializing, safe to proceed
+                break
+
+            if waited == 0:
+                logger.info(f'Detected {len(markers)} instance(s) initializing, waiting...')
+
+            time.sleep(check_interval)
+            waited += check_interval
+
+            # Log progress every 5 seconds
+            if int(waited) % 5 == 0 and waited > 0:
+                logger.info(f'Still waiting for other instances... ({int(waited)}s/{max_wait}s)')
+
+        if waited >= max_wait:
+            logger.warning(f'Waited {max_wait}s for other instances, proceeding anyway')
+        elif waited > 0:
+            logger.info(f'Other instances completed, proceeding with initialization')
+
+        # Create our own marker file
+        marker_file = marker_dir / f'{self.config_name}.initializing'
+        try:
+            marker_file.touch()
+            logger.debug(f'Created initialization marker: {marker_file}')
+        except Exception as e:
+            logger.warning(f'Failed to create marker file: {e}')
+
+    def _remove_init_marker(self):
+        """Remove initialization marker file"""
+        from pathlib import Path
+        marker_file = Path(f'./log/.init_markers/{self.config_name}.initializing')
+        try:
+            if marker_file.exists():
+                marker_file.unlink()
+                logger.debug(f'Removed initialization marker: {marker_file}')
+        except Exception as e:
+            logger.warning(f'Failed to remove marker file: {e}')
 
     @cached_property
     def config(self) -> "Config":
@@ -75,11 +138,15 @@ class Script:
         try:
             from module.device.device import Device
             device = Device(config=self.config)
+            # Remove initialization marker after successful device initialization
+            self._remove_init_marker()
             return device
         except RequestHumanTakeover:
+            self._remove_init_marker()
             logger.critical('Request human takeover')
             exit(1)
         except Exception as e:
+            self._remove_init_marker()
             logger.exception(e)
             exit(1)
 

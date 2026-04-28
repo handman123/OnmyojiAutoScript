@@ -352,6 +352,13 @@ class Handle:
         """
         if self.emulator_family == EmulatorFamily.FAMILY_MUMU:
             # 使用正则匹配12 来判定是不是mumu12这并不是一个好的方法
+            # Check if children exists to avoid IndexError in multi-instance scenarios
+            if not self.root_node.children:
+                logger.error('Window structure incomplete: root_node.children is empty')
+                logger.error('This usually happens when multiple instances start simultaneously')
+                logger.error('The window may not be fully initialized yet')
+                raise IndexError('root_node.children is empty')
+
             name = self.root_node.children[0].name
             num = self.root_node.children[0].num
             if name == 'MuMuPlayer':

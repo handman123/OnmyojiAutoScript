@@ -32,6 +32,7 @@ class Device(Platform, Screenshot, Control, AppControl):
     stuck_long_wait_list = ['BATTLE_STATUS_S', 'PAUSE', 'LOGIN_CHECK', 'PREPARE_BEFORE_BATTLE']
 
     def __init__(self, *args, **kwargs):
+        import time
         for trial in range(4):
             try:
                 super().__init__(*args, **kwargs)
@@ -52,6 +53,23 @@ class Device(Platform, Screenshot, Control, AppControl):
                         f'please set a correct serial'
                     )
                     raise RequestHumanTakeover
+            except IndexError as e:
+                # Window structure not ready (multi-instance conflict)
+                if trial >= 3:
+                    logger.critical(f'Window structure error after {trial + 1} trials: {e}')
+                    logger.critical('This may be caused by multi-instance startup conflict')
+                    raise RequestHumanTakeover
+                wait_time = (trial + 1) * 2  # 2s, 4s, 6s
+                logger.warning(f'Window structure not ready (trial {trial + 1}/4): {e}')
+                logger.info(f'Waiting {wait_time}s for window to stabilize...')
+                time.sleep(wait_time)
+                # Clear cached properties to force re-initialization
+                from module.base.decorator import del_cached_property
+                if hasattr(self, 'root_node'):
+                    del_cached_property(self, 'root_node')
+                if hasattr(self, 'screenshot_handle_num'):
+                    del_cached_property(self, 'screenshot_handle_num')
+                continue
 
         # Auto-fill emulator info
         if IS_WINDOWS and not self.config.script.device.remote_control and self.config.script.device.emulatorinfo_type == 'auto':

@@ -517,7 +517,7 @@ class Connection(ConnectionAttr):
     @Config.when(DEVICE_OVER_HTTP=False)
     def adb_connect(self, serial):
         """
-        Connect to a serial, try 3 times at max.
+        Connect to a serial, try 5 times at max with exponential backoff.
         If there's an old ADB server running while Alas is using a newer one, which happens on Chinese emulators,
         the first connection is used to kill the other one, and the second is the real connect.
 
@@ -527,17 +527,21 @@ class Connection(ConnectionAttr):
         Returns:
             bool: If success
         """
+        # Check if device is already connected
+        devices = self.list_device()
+        device = devices.select(serial=serial).first_or_none()
+        if device and device.status == 'device':
+            logger.info(f'Device {serial} is already connected, skip adb connect')
+            return True
+
         # Disconnect offline device before connecting
-        for device in self.list_device():
-            if device.status == 'offline':
+        for device in devices:
+            if device.serial == serial and device.status == 'offline':
                 logger.warning(f'Device {serial} is offline, disconnect it before connecting')
                 self.adb_disconnect(serial)
-            elif device.status == 'unauthorized':
+                time.sleep(0.5)
+            elif device.serial == serial and device.status == 'unauthorized':
                 logger.error(f'Device {serial} is unauthorized, please accept ADB debugging on your device')
-            elif device.status == 'device':
-                pass
-            else:
-                logger.warning(f'Device {serial} is is having a unknown status: {device.status}')
 
         # Skip for emulator-5554
         if 'emulator-' in serial:
@@ -547,28 +551,44 @@ class Connection(ConnectionAttr):
             logger.info(f'"{serial}" seems to be a Android serial, skip adb connect')
             return True
 
-        # Try to connect
-        for _ in range(3):
-            msg = self.adb_client.connect(serial)
-            logger.info(msg)
-            if 'connected' in msg:
-                # Connected to 127.0.0.1:59865
-                # Already connected to 127.0.0.1:59865
-                return True
-            elif 'bad port' in msg:
-                # bad port number '598265' in '127.0.0.1:598265'
-                logger.error(msg)
-                possible_reasons('Serial incorrect, might be a typo')
-                raise RequestHumanTakeover
-            elif '(10061)' in msg:
-                # cannot connect to 127.0.0.1:55555:
-                # No connection could be made because the target machine actively refused it. (10061)
+        # Try to connect with exponential backoff
+        max_retries = 5
+        for retry in range(max_retries):
+            try:
+                msg = self.adb_client.connect(serial)
                 logger.info(msg)
-                logger.warning('No such device exists, please restart the emulator or set a correct serial')
-                raise EmulatorNotRunningError
+                if 'connected' in msg:
+                    # Connected to 127.0.0.1:59865
+                    # Already connected to 127.0.0.1:59865
+                    return True
+                elif 'bad port' in msg:
+                    # bad port number '598265' in '127.0.0.1:598265'
+                    logger.error(msg)
+                    possible_reasons('Serial incorrect, might be a typo')
+                    raise RequestHumanTakeover
+                elif '(10061)' in msg:
+                    # cannot connect to 127.0.0.1:55555:
+                    # No connection could be made because the target machine actively refused it. (10061)
+                    logger.info(msg)
+                    logger.warning('No such device exists, please restart the emulator or set a correct serial')
+                    raise EmulatorNotRunningError
 
-        # Failed to connect
-        logger.warning(f'Failed to connect {serial} after 3 trial, assume connected')
+                # Connection attempt didn't succeed, retry
+                if retry < max_retries - 1:
+                    wait_time = min(2 ** retry, 8)  # Exponential backoff: 1s, 2s, 4s, 8s, 8s
+                    logger.warning(f'ADB connect attempt {retry + 1}/{max_retries} failed, retrying in {wait_time}s...')
+                    time.sleep(wait_time)
+            except ConnectionResetError as e:
+                logger.error(f'ADB connection reset: {e}')
+                if retry < max_retries - 1:
+                    wait_time = min(2 ** retry, 8)
+                    logger.info(f'Retrying in {wait_time}s... ({retry + 1}/{max_retries})')
+                    time.sleep(wait_time)
+                else:
+                    raise
+
+        # Failed to connect after all retries
+        logger.warning(f'Failed to connect {serial} after {max_retries} trials, assume connected')
         self.detect_device()
         return False
 
@@ -721,6 +741,10 @@ class Connection(ConnectionAttr):
         """
         devices = []
         try:
+            # Add a small random delay to reduce concurrent access conflicts
+            import random
+            time.sleep(random.uniform(0, 0.3))
+
             with self.adb_client._connect() as c:
                 c.send_command("host:devices")
                 c.check_okay()
@@ -739,6 +763,9 @@ class Connection(ConnectionAttr):
             if '强迫关闭' in str(e):
                 logger.critical('无法连接至ADB服务，请关闭UU加速器、原神私服、以及一些劣质代理软件。'
                                 '它们会劫持电脑上所有的网络连接，包括Alas与模拟器之间的本地连接。')
+        except Exception as e:
+            logger.error(f'Failed to list devices: {e}')
+            logger.warning('This may be caused by concurrent ADB access, will retry...')
         return SelectedGrids(devices)
 
     def detect_device(self):
