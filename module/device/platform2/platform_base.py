@@ -97,6 +97,10 @@ class PlatformBase(EmulatorManagerBase):
         Returns:
             EmulatorInstanceBase: Emulator instance or None
         """
+        if hasattr(self, 'config') and getattr(self.config.script.device, 'remote_control', False):
+            logger.info('Remote control enabled, skip local emulator instance detection')
+            return None
+
         data = self.emulator_info
         old_info = dict(
             emulator=data.emulator,
