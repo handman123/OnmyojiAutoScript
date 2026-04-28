@@ -13,8 +13,7 @@
       "emulatorinfo_name": "",
       "emulatorinfo_path": "",
       "emulator_window_minimize": false,
-      "run_background_only": false,
-      "remote_control": false
+      "run_background_only": false
     },
     "error": {
       "handle_error": true,
