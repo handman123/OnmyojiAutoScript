@@ -8,6 +8,11 @@ services:
     image: 'oas-env'
     environment:
       - TZ=Asia/Shanghai
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=localhost,127.0.0.1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       context: ./deploy/docker/
       dockerfile: ./Dockerfile
