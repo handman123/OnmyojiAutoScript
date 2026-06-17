@@ -2,6 +2,9 @@
 # copy from alas
 import os
 import re
+import sys
+
+IS_WINDOWS = sys.platform == 'win32'
 
 import adbutils
 import uiautomator2 as u2
@@ -152,6 +155,9 @@ class ConnectionAttr:
         Returns:
             str: 127.0.0.1:{port}
         """
+        if not IS_WINDOWS:
+            logger.error('BlueStacks Hyper-V is Windows-only')
+            raise RequestHumanTakeover
         from winreg import HKEY_LOCAL_MACHINE, OpenKey, QueryValueEx
 
         logger.info("Use BlueStacks4 Hyper-V Beta")
@@ -186,6 +192,9 @@ class ConnectionAttr:
         Returns:
             str: 127.0.0.1:{port}
         """
+        if not IS_WINDOWS:
+            logger.error('BlueStacks Hyper-V is Windows-only')
+            raise RequestHumanTakeover
         from winreg import HKEY_LOCAL_MACHINE, OpenKey, QueryValueEx
 
         logger.info("Use BlueStacks5 Hyper-V")

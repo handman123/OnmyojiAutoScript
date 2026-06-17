@@ -1,7 +1,10 @@
 import os
 import re
-import winreg
+import sys
 import subprocess
+
+if sys.platform == 'win32':
+    import winreg
 
 from adbutils.errors import AdbError
 
@@ -75,6 +78,8 @@ class Bluestacks5Instance(EmulatorInstance):
 
     @cached_property
     def id_and_serial(self):
+        if sys.platform != 'win32':
+            return []
         try:
             reg = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\BlueStacks_nxt")
         except FileNotFoundError:

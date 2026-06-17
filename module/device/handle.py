@@ -2,20 +2,25 @@
 # @author runhey
 # github https://github.com/runhey
 import re
+import sys
 
 from enum import Enum
 from cached_property import cached_property
 from anytree import NodeMixin, RenderTree, PreOrderIter
-from win32api import GetSystemMetrics, SendMessage, MAKELONG, PostMessage
-from win32print import GetDeviceCaps
-from win32process import GetWindowThreadProcessId
-from win32gui import (GetWindowText, EnumWindows, FindWindow, FindWindowEx,
-                      IsWindow, GetWindowRect, GetWindowDC, DeleteObject,
-                      SetForegroundWindow, IsWindowVisible, GetDC, GetParent,
-                      EnumChildWindows)
-from win32con import (SRCCOPY, DESKTOPHORZRES, DESKTOPVERTRES, WM_LBUTTONUP,
-                      WM_LBUTTONDOWN, WM_ACTIVATE, WA_ACTIVE, MK_LBUTTON,
-                      WM_NCHITTEST, WM_SETCURSOR, HTCLIENT, WM_MOUSEMOVE)
+
+IS_WINDOWS = sys.platform == 'win32'
+
+if IS_WINDOWS:
+    from win32api import GetSystemMetrics, SendMessage, MAKELONG, PostMessage
+    from win32print import GetDeviceCaps
+    from win32process import GetWindowThreadProcessId
+    from win32gui import (GetWindowText, EnumWindows, FindWindow, FindWindowEx,
+                          IsWindow, GetWindowRect, GetWindowDC, DeleteObject,
+                          SetForegroundWindow, IsWindowVisible, GetDC, GetParent,
+                          EnumChildWindows)
+    from win32con import (SRCCOPY, DESKTOPHORZRES, DESKTOPVERTRES, WM_LBUTTONUP,
+                          WM_LBUTTONDOWN, WM_ACTIVATE, WA_ACTIVE, MK_LBUTTON,
+                          WM_NCHITTEST, WM_SETCURSOR, HTCLIENT, WM_MOUSEMOVE)
 from module.config.config import Config
 from module.logger import logger
 
@@ -26,6 +31,8 @@ def handle_title2num(title: str) -> int:
     :param title:
     :return:  如果没有找到就是返回零
     """
+    if not IS_WINDOWS:
+        return 0
     return FindWindow(None, title)
 
 
@@ -35,6 +42,8 @@ def handle_num2title(num: int) -> str:
     :param num:
     :return:
     """
+    if not IS_WINDOWS:
+        return None
     return None if num is None or num == 0 or num == '' else GetWindowText(num)
 
 
@@ -44,6 +53,8 @@ def is_handle_valid(num: int) -> bool:
     :param num:
     :return:
     """
+    if not IS_WINDOWS:
+        return False
     return IsWindow(num)
 
 
@@ -53,6 +64,8 @@ def handle_num2pid(num: int) -> int:
     :param num:
     :return:
     """
+    if not IS_WINDOWS:
+        return 0
     return 0 if num is None or num == 0 or num == '' else GetWindowThreadProcessId(num)[1]
 
 
@@ -61,6 +74,8 @@ def window_scale_rate() -> float:
     获取window的系统缩放 一遍是1
     :return:
     """
+    if not IS_WINDOWS:
+        return 1.0
     hDC = GetDC(0)
     # 物理上（真实的）的 横纵向分辨率
     wReal = GetDeviceCaps(hDC, DESKTOPHORZRES)
@@ -223,6 +238,8 @@ class Handle:
 
         :return:  类似这样['MuMu模拟器']
         """
+        if not IS_WINDOWS:
+            return []
 
         def enum_windows_callback(hwnd, windows):
             window_text = GetWindowText(hwnd)
@@ -282,6 +299,8 @@ class Handle:
         :param level:
         :return:
         """
+        if not IS_WINDOWS:
+            return
         child_windows = []
         EnumChildWindows(hwnd, lambda hwnd, param: param.append(hwnd), child_windows)
 
@@ -301,6 +320,8 @@ class Handle:
         通过句柄树来判断这个是那个模拟器大类
         :return:
         """
+        if not IS_WINDOWS or not hasattr(self, 'root_node') or self.root_node is None:
+            return EmulatorFamily.FAMILY_OTHER
         children_num = len(self.root_node.children)
         if children_num == 1:  #
             name = self.root_node.children[0].name
@@ -383,6 +404,8 @@ class Handle:
         2023.7.1 在高缩放的设备上应该输出1280X720
         :return:
         """
+        if not IS_WINDOWS:
+            return None
         winRect = GetWindowRect(self.screenshot_handle_num)
         scale_rate = window_scale_rate()
         width_before: int = winRect[2] - winRect[0]  # 右x-左x
@@ -400,9 +423,11 @@ class Handle:
     @cached_property
     def window_scale_rate(self) -> float:
         """
-        获取window的系统缩放 一般是1
+        获取window的系统缩放 一遍是1
         :return:
         """
+        if not IS_WINDOWS:
+            return 1.0
         hDC = GetDC(0)
         # 物理上（真实的）的 横纵向分辨率
         wReal = GetDeviceCaps(hDC, DESKTOPHORZRES)
@@ -416,6 +441,8 @@ class Handle:
 
     @classmethod
     def handle_has_children(cls, hwnd: int, name: str = 'MuMuPlayer12') -> bool:
+        if not IS_WINDOWS:
+            return False
         root_node = WindowNode(name=name, num=hwnd)
         Handle.handle_tree(hwnd=hwnd, node=root_node)
         handle_depth = WindowNode.get_tree_depth(root_node)

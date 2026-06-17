@@ -2,24 +2,29 @@
 # @author runhey
 # github https://github.com/runhey
 import cv2
+import sys
 from numpy import frombuffer, uint8, array, random
 import numpy as np
 import time
 
 from math import dist
 from cached_property import cached_property
-from win32gui import (GetWindowText, EnumWindows, FindWindow, FindWindowEx,
-                      IsWindow, GetWindowRect, GetWindowDC, DeleteObject,
-                      SetForegroundWindow, IsWindowVisible, GetDC, GetParent,
-                      EnumChildWindows, SetForegroundWindow)
-from win32con import (SRCCOPY, DESKTOPHORZRES, DESKTOPVERTRES, WM_LBUTTONUP,
-                      WM_LBUTTONDOWN, WM_ACTIVATE, WA_ACTIVE, MK_LBUTTON,
-                      WM_NCHITTEST, WM_SETCURSOR, HTCLIENT, WM_MOUSEMOVE,
-                      WM_PARENTNOTIFY, WM_MOUSEACTIVATE, WM_MOUSEWHEEL,
-                      WM_SETFOCUS)
-from win32ui import CreateDCFromHandle, CreateBitmap
-from win32api import GetSystemMetrics, SendMessage, MAKELONG, PostMessage
-from win32con import SRCCOPY
+
+IS_WINDOWS = sys.platform == 'win32'
+
+if IS_WINDOWS:
+    from win32gui import (GetWindowText, EnumWindows, FindWindow, FindWindowEx,
+                          IsWindow, GetWindowRect, GetWindowDC, DeleteObject,
+                          SetForegroundWindow, IsWindowVisible, GetDC, GetParent,
+                          EnumChildWindows, SetForegroundWindow)
+    from win32con import (SRCCOPY, DESKTOPHORZRES, DESKTOPVERTRES, WM_LBUTTONUP,
+                          WM_LBUTTONDOWN, WM_ACTIVATE, WA_ACTIVE, MK_LBUTTON,
+                          WM_NCHITTEST, WM_SETCURSOR, HTCLIENT, WM_MOUSEMOVE,
+                          WM_PARENTNOTIFY, WM_MOUSEACTIVATE, WM_MOUSEWHEEL,
+                          WM_SETFOCUS)
+    from win32ui import CreateDCFromHandle, CreateBitmap
+    from win32api import GetSystemMetrics, SendMessage, MAKELONG, PostMessage
+    from win32con import SRCCOPY
 
 
 from module.base.cBezier import BezierTrajectory
@@ -43,6 +48,9 @@ class Window(Handle):
         后台截屏
         :return:
         """
+        if not IS_WINDOWS:
+            logger.warning("screenshot_window_background is Windows-only")
+            return None
         widthScreen, heightScreen = self.screenshot_size
         # 返回句柄窗口的设备环境，覆盖整个窗口，包括非客户区，标题栏，菜单，边框
         hwndDc = GetWindowDC(self.screenshot_handle_num)
@@ -89,6 +97,8 @@ class Window(Handle):
         夜神模拟器
         :return:
         """
+        if not IS_WINDOWS:
+            return []
         result = []
         if self.emulator_family == EmulatorFamily.FAMILY_MUMU:
             result.append(self.root_node.num)
@@ -119,6 +129,8 @@ class Window(Handle):
         不同mumu模拟器的头部高度不同
         :return:
         """
+        if not IS_WINDOWS:
+            return 0
         father_win_Rect = GetWindowRect(self.control_handle_list[0])
         father_height: int = father_win_Rect[3] - father_win_Rect[1]  # 下y - 上y 计算高度
         children_win_Rect = GetWindowRect(self.control_handle_list[1])
@@ -141,6 +153,10 @@ class Window(Handle):
         :param fast:
         :return:
         """
+        if not IS_WINDOWS:
+            logger.warning("click_window_message is Windows-only")
+            return
+
         # 我不知道为什么的使用的pywin32==306的版本会导致获取的图片的是(1024, 576)
         # 所有我在点击的时候会除以这个缩放比例
         # 但是后面发现又不是影响的很奇怪
@@ -181,8 +197,13 @@ class Window(Handle):
         :param duration: 持续时间 单位秒
         :return:
         """
+        if not IS_WINDOWS:
+            logger.warning("long_click_window_message is Windows-only")
+            return
+
         # 我不知道为什么的使用的pywin32==306的版本会导致获取的图片的是(1024, 576)
         # 所有我在点击的时候会除以这个缩放比例
+
         x = int(x / self.window_scale_rate)
         y = int(y / self.window_scale_rate)
 
@@ -214,6 +235,8 @@ class Window(Handle):
         :param endPos:
         :return:
         """
+        if not IS_WINDOWS:
+            return
         # 生成的坐标点列表
         interval: int = 10  # 每次移动的间隔时间
         numberList: int = int(dist(startPos, endPos) / (1 * interval))  # 表示每毫秒移动1.5个像素点， 总的时间除以每个点10ms就得到总的点的个数
@@ -273,6 +296,8 @@ class Window(Handle):
         :param endPos:
         :return:
         """
+        if not IS_WINDOWS:
+            return
         # 生成的坐标点列表
         interval: int = 8  # 每次移动的间隔时间
         numberList: int = int(dist(startPos, endPos) / (1.5 * interval))  # 表示每毫秒移动1.5个像素点， 总的时间除以每个点10ms就得到总的点的个数
@@ -326,6 +351,8 @@ class Window(Handle):
         :param delta:
         :return:
         """
+        if not IS_WINDOWS:
+            return
         wparam = MAKELONG(0, delta)
         lparam = MAKELONG(x, y)
         handle_num = None
@@ -370,5 +397,6 @@ if __name__ == "__main__":
     # PostMessage(handle, WM_MOUSEWHEEL, wparam, lparam)
 
     w.long_click_window_message(142, 310, 1.5)
+
 
 

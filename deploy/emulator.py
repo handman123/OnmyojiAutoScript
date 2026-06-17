@@ -4,12 +4,16 @@ import os
 import re
 import shutil
 import subprocess
-import winreg
+import sys
+
+if sys.platform == 'win32':
+    import winreg
 
 from deploy.logger import logger
 from deploy.utils import cached_property
 
-asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 
 class VirtualBoxEmulator:
@@ -40,6 +44,8 @@ class VirtualBoxEmulator:
         Raises:
             FileNotFoundError: If emulator not installed.
         """
+        if sys.platform != 'win32':
+            raise FileNotFoundError('Emulator detection only supported on Windows')
         if self.name == 'LDPlayer4':
             root = self.get_install_dir_from_reg('SOFTWARE\\leidian\\ldplayer', 'InstallDir')
             if root is not None:
@@ -69,6 +75,8 @@ class VirtualBoxEmulator:
         Returns:
             str: Installation dir or None
         """
+        if sys.platform != 'win32':
+            return None
         try:
             reg = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path, 0)
             root = winreg.QueryValueEx(reg, key)[0]
@@ -246,7 +254,10 @@ class EmulatorConnect:
                     return code(int) of cmd if not output.
         """
         if not output:
-            cmd.extend(['>nul', '2>nul'])
+            if sys.platform == 'win32':
+                cmd.extend(['>nul', '2>nul'])
+            else:
+                cmd.extend(['>/dev/null', '2>/dev/null'])
         logger.info(' '.join(cmd))
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         try:
@@ -298,6 +309,10 @@ class EmulatorConnect:
         return devices
 
     def adb_kill(self):
+        if sys.platform != 'win32':
+            logger.info('adb_kill is Windows-only, use "adb kill-server" instead')
+            return
+
         # self._execute([self.adb_binary, 'devices'])
         # self._execute([self.adb_binary, 'kill-server'])
 
