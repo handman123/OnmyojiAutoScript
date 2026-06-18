@@ -5,6 +5,7 @@ import re
 import sys
 
 IS_WINDOWS = sys.platform == 'win32'
+IS_MACOS = sys.platform == 'darwin'
 
 import adbutils
 import uiautomator2 as u2
@@ -243,12 +244,21 @@ class ConnectionAttr:
         #     if os.path.exists(file):
         #         return os.path.abspath(file)
 
-        # Try adb in python environment
-        import sys
-        file = os.path.join(sys.executable, '../Lib/site-packages/adbutils/binaries/adb.exe')
-        file = os.path.abspath(file).replace('\\', '/')
-        if os.path.exists(file):
-            return file
+        # Try adb in python environment (Windows toolkit)
+        if IS_WINDOWS:
+            file = os.path.join(sys.executable, '../Lib/site-packages/adbutils/binaries/adb.exe')
+            file = os.path.abspath(file).replace('\\', '/')
+            if os.path.exists(file):
+                return file
+
+        # Try adb relative to MuMu Mac CLI（和 Windows 相对 sys.executable 同理）
+        if IS_MACOS:
+            cli = self.config.script.device.emulatorinfo_path_mac or \
+                  '/Applications/MuMuPlayer.app/Contents/MacOS/mumu-cli'
+            file = os.path.join(os.path.dirname(cli), 'MuMuEmulator.app/Contents/MacOS/tools/adb')
+            file = os.path.abspath(file)
+            if os.path.exists(file):
+                return file
 
         # Use adb in system PATH
         file = 'adb'
