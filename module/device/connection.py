@@ -566,6 +566,11 @@ class Connection(ConnectionAttr):
                 logger.info(msg)
                 logger.warning('No such device exists, please restart the emulator or set a correct serial')
                 raise EmulatorNotRunningError
+            elif 'Connection refused' in msg:
+                # macOS/Linux: failed to connect to '127.0.0.1:16384': Connection refused
+                logger.info(msg)
+                logger.warning('No such device exists, please restart the emulator or set a correct serial')
+                raise EmulatorNotRunningError
 
         # Failed to connect
         logger.warning(f'Failed to connect {serial} after 3 trial, assume connected')

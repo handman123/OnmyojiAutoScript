@@ -14,6 +14,7 @@ class PackageName(str, Enum):
     NETEASE = 'com.netease.onmyoji'
     NETEASE_HUAWEI = 'com.netease.onmyoji.huawei'
     NETEASE_BILIBILI = 'com.netease.onmyoji.bili'
+    NETEASE_MUMU_MAC = 'com.netease.onmyoji.mumumnqmacos_cps'  # MuMu Mac 模拟器专版
 
 class ScreenshotMethod(str, Enum):
     AUTO = 'auto'
@@ -69,6 +70,9 @@ class Device(BaseModel):
                                    description='emulatorinfo_name_help')
     emulatorinfo_path: str = Field(default='',
                                    description='emulatorinfo_path_help')
+    # macOS 模拟器 CLI 路径（仅 macOS 使用，与 Windows emulatorinfo_path 独立）
+    emulatorinfo_path_mac: str = Field(default='',
+                                       description='macOS 模拟器 CLI 路径，默认 /Applications/MuMuPlayer.app/Contents/MacOS/mumu-cli')
     # 举例, E:\ProgramFiles\MuMuPlayer-12.0\shell\MuMuPlayer.exe
     # 模拟器启动时最小化
     emulator_window_minimize: bool = Field(default=False,
