@@ -3,6 +3,7 @@
 # github https://github.com/runhey
 from time import sleep
 from datetime import timedelta, datetime, time
+import random
 from cached_property import cached_property
 
 from module.exception import TaskEnd
@@ -83,12 +84,27 @@ class ScriptTask(GameUi, GeneralBattle, GeneralInvite, SwitchSoul, HuntAssets):
                 return True
         else:
             logger.info('Today is the Netherworld day')
+            ft = self.config.hunt.scheduler.float_time
+            float_seconds = ft.hour * 3600 + ft.minute * 60 + ft.second
+            random_delay = random.randint(0, float_seconds) if float_seconds > 0 else 0
             if now.time() < time(17, 0):
-                self.custom_next_run(task='Hunt', custom_time=self.con_time.netherworld_time, time_delta=0)
+                target_time = (now + timedelta(days=0)).replace(
+                    hour=self.con_time.netherworld_time.hour,
+                    minute=self.con_time.netherworld_time.minute,
+                    second=self.con_time.netherworld_time.second
+                ) + timedelta(seconds=random_delay)
+                self.set_next_run(task='Hunt', target=target_time, server=False)
                 raise TaskEnd('Hunt')
             # 如果是阴界日在23:00-23:59之间则设定时间为明天的自定义时间，返回False
             elif now.time() > time(23, 0):
-                self.plan_tomorrow_hunt()
+                if self.tomorrow_kirin_day:
+                    ct = self.con_time.kirin_time
+                else:
+                    ct = self.con_time.netherworld_time
+                target_time = (now + timedelta(days=1)).replace(
+                    hour=ct.hour, minute=ct.minute, second=ct.second
+                ) + timedelta(seconds=random_delay)
+                self.set_next_run(task='Hunt', target=target_time, server=False)
                 raise TaskEnd('Hunt')
             else:
                 return True
