@@ -66,6 +66,14 @@ area_map = (
 )
 
 
+# 寮突破限时窗口参数（可扩展调整）
+RYOU_TOPPA_TIME_WINDOW = {
+    'start_hour': 21,    # 窗口开启时间（晚上21:00）
+    'end_hour': 4,       # 窗口关闭时间（次日凌晨04:00）
+    'schedule_hour': 21, # 调度目标时间（晚上21:00）
+}
+
+
 def random_delay(min_value: float = 1.0, max_value: float = 2.0, decimal: int = 1):
     """
     生成一个指定范围内的随机小数
@@ -86,6 +94,12 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
         time_delta = timedelta(hours=time_limit.hour, minutes=time_limit.minute, seconds=time_limit.second)
         self.medal_grid = ImageGrid([RealmRaidAssets.I_MEDAL_5, RealmRaidAssets.I_MEDAL_4, RealmRaidAssets.I_MEDAL_3,
                                      RealmRaidAssets.I_MEDAL_2, RealmRaidAssets.I_MEDAL_1, RealmRaidAssets.I_MEDAL_0])
+
+        # 限时窗口模式：非窗口时间直接调度并退出
+        if ryou_config.raid_config.time_window_enable and not self._is_in_time_window():
+            logger.info('Not in RyouToppa time window, schedule to today 21:00')
+            self.custom_next_run(task='RyouToppa', custom_time=Time(hour=21, minute=0, second=0), time_delta=0)
+            raise TaskEnd
 
         if ryou_config.switch_soul_config.enable:
             self.ui_get_current_page()
@@ -139,13 +153,19 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
                 self.start_ryou_toppa()
             else:
                 logger.info("The ryou toppa is not open and you are a ryou member.")
-                self.set_next_run(task='RyouToppa', finish=True, server=True, success=False)
+                if ryou_config.raid_config.time_window_enable:
+                    self._schedule_next_ryou_toppa()
+                else:
+                    self.set_next_run(task='RyouToppa', finish=True, server=True, success=False)
                 raise TaskEnd
 
         # 100% 攻破, 第二天再执行
         if ryou_toppa_success_penetration:
             logger.info('RyouToppa is 100%')
-            self.plan_tomorrow_ryoutoppa()
+            if ryou_config.raid_config.time_window_enable:
+                self._schedule_next_ryou_toppa()
+            else:
+                self.plan_tomorrow_ryoutoppa()
             raise TaskEnd
         if self.config.ryou_toppa.general_battle_config.lock_team_enable:
             logger.info("Lock team.")
@@ -189,7 +209,9 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
         # 回 page_main 失败
         # self.ui_current = page_ryou_toppa
         # self.ui_goto(page_main)
-        if success:
+        if ryou_config.raid_config.time_window_enable:
+            self._schedule_next_ryou_toppa()
+        elif success:
             self.set_next_run(task='RyouToppa', finish=True, server=True, success=True)
         else:
             self.set_next_run(task='RyouToppa', finish=True, server=True, success=False)
@@ -204,6 +226,31 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
         # 如果时间在05:00-23:59之间则设定时间为明天的自定义时间
         else:
             self.custom_next_run(task='RyouToppa', custom_time=self.config.ryou_toppa.raid_config.next_ryoutoppa_time, time_delta=1)
+
+    @staticmethod
+    def _is_in_time_window() -> bool:
+        """
+        判断当前时间是否在寮突破执行窗口内
+        :return: True 表示在窗口内（21:00 ~ 次日 04:00）
+        """
+        hour = datetime.now().hour
+        return hour >= RYOU_TOPPA_TIME_WINDOW['start_hour'] or hour < RYOU_TOPPA_TIME_WINDOW['end_hour']
+
+    def _schedule_next_ryou_toppa(self):
+        """
+        限时窗口模式下的调度逻辑：
+        - 凌晨之后（00:00 ~ 03:59）完成 → 当天 schedule_hour
+        - 凌晨之前（21:00 ~ 23:59）完成 → 第二天 schedule_hour
+        """
+        hour = datetime.now().hour
+        schedule_hour = RYOU_TOPPA_TIME_WINDOW['schedule_hour']
+        custom_time = Time(hour=schedule_hour, minute=0, second=0)
+        if hour < RYOU_TOPPA_TIME_WINDOW['end_hour']:
+            self.custom_next_run(task='RyouToppa', custom_time=custom_time, time_delta=0)
+            logger.info(f'RyouToppa finished after midnight, schedule to today {schedule_hour}:00')
+        else:
+            self.custom_next_run(task='RyouToppa', custom_time=custom_time, time_delta=1)
+            logger.info(f'RyouToppa finished before midnight, schedule to tomorrow {schedule_hour}:00')
 
     def start_ryou_toppa(self):
         """
@@ -262,7 +309,10 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
         # Ps: 这时候能打过的都打过了，没有能攻打的结界了, 代表任务已经完成，set_next_run time=1d
         if self.appear(f3, threshold=0.8) or self.appear(f4, threshold=0.8):
             logger.info('RyouToppa has tried to attack')
-            self.plan_tomorrow_ryoutoppa()
+            if self.config.ryou_toppa.raid_config.time_window_enable:
+                self._schedule_next_ryou_toppa()
+            else:
+                self.plan_tomorrow_ryoutoppa()
             raise TaskEnd
         # 如果该区域攻略失败返回 False
         if self.appear(f1, threshold=0.8) or self.appear(f2, threshold=0.8):
