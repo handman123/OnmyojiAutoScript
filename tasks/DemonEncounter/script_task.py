@@ -3,6 +3,7 @@
 # github https://github.com/runhey
 import time
 from time import sleep
+import random
 
 from enum import Enum
 from cached_property import cached_property
@@ -474,21 +475,27 @@ class ScriptTask(GameUi, GeneralBattle, DemonEncounterAssets, SwitchSoul):
         """
         检查时间是否正确，
         如果正确就继续
-        如果不在17:00到22:00之间,就推迟到下一个 17:30
+        如果不在17:00到23:00之间,就推迟到下一个窗口开启时间
         :return:
         """
         now = datetime.now()
+        # 从调度器配置中读取随机延迟，模拟 server=True 时的 float_time 行为
+        ft = self.config.demon_encounter.scheduler.float_time
+        float_seconds = ft.hour * 3600 + ft.minute * 60 + ft.second
+        random_delay = random.randint(0, float_seconds) if float_seconds > 0 else 0
         if now.hour < 17:
-            # 17点之前，推迟到当天的17点半
-            logger.info('Before 17:00, wait to 17:30')
-            target_time = datetime(now.year, now.month, now.day, 17, 30, 0)
-            self.set_next_run(task='DemonEncounter', success=False, finish=False, target=target_time)
+            # 17点之前，推迟到当天的17:00
+            logger.info('Before 17:00, wait to 17:00')
+            target_time = datetime(now.year, now.month, now.day, 17, 0, 0)
+            target_time += timedelta(seconds=random_delay)
+            self.set_next_run(task='DemonEncounter', target=target_time, server=False)
             return False
         elif now.hour >= 23:
-            # 23点之后，推迟到第二天的17:30
-            logger.info('After 23:00, wait to 17:30')
-            target_time = datetime(now.year, now.month, now.day, 17, 30, 0) + timedelta(days=1)
-            self.set_next_run(task='DemonEncounter', success=False, finish=False, target=target_time)
+            # 23点之后，推迟到第二天的17:00
+            logger.info('After 23:00, wait to 17:00 next day')
+            target_time = datetime(now.year, now.month, now.day, 17, 0, 0) + timedelta(days=1)
+            target_time += timedelta(seconds=random_delay)
+            self.set_next_run(task='DemonEncounter', target=target_time, server=False)
             return False
         else:
             return True
