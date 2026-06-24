@@ -444,7 +444,8 @@ class BaseExploration(GameUi, GeneralBattle, GeneralRoom, GeneralInvite, Replace
                 break
 
             # 处理战斗类元素
-            action_click = random.choice([self.C_REWARD_2, self.C_REWARD_3])
+            # action_click = random.choice([self.C_REWARD_2, self.C_REWARD_3])
+            action_click = random.choice([self.C_REWARD_3]) #左侧随机点击概率点击到妖气封印
             if any(self.appear_then_click(item, action=action_click, interval=1) for item in click_list):
                 continue
             # 误点聊天频道会自动关闭
