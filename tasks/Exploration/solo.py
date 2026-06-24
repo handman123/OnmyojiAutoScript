@@ -31,6 +31,7 @@ class SoloExploration(BaseExploration):
         logger.hr('solo')
         explore_init = False
         search_fail_cnt = 0
+        scene_known = 0
 
         while 1:
             self.screenshot()
@@ -96,6 +97,12 @@ class SoloExploration(BaseExploration):
             elif scene == Scene.BATTLE_PREPARE or scene == Scene.BATTLE_FIGHTING:
                 self.check_take_over_battle(is_screenshot=False, config=self._config.general_battle_config)
             elif scene == Scene.UNKNOWN:
+                if scene_known > 10:
+                    logger.info(f'Scene unknown, try exit')
+                    scene_known = 0
+                    self.quit_explore()
+                else:
+                    scene_known += 1
                 continue
 
     def run_leader(self):
