@@ -26,6 +26,7 @@ from module.exception import RequestHumanTakeover, TaskEnd, GameStuckError
 from module.atom.image_grid import ImageGrid
 from module.atom.animate import RuleAnimate
 from module.base.utils import load_image
+from tasks.Restart.assets import RestartAssets
 
 class Scene(Enum):
     UNKNOWN = 0  #
@@ -425,8 +426,30 @@ class BaseExploration(GameUi, GeneralBattle, GeneralRoom, GeneralInvite, Replace
             # 如果还在探索说明，这个是显示滑动导致挑战按钮不在范围内
             logger.warning('Fire button disappear, but still in exploration')
             return False
-        self.run_general_battle(self._config.general_battle_config)
+        self.run_general_battle_e()
         self.minions_cnt += 1
+        return True
+    
+    def run_general_battle_e(self) -> bool:
+        """
+        运行脚本
+        :return:
+        """
+        self.device.click_record_clear()
+        click_list = [self.I_E_REWARD_STATISTICS, self.I_WIN, self.I_FALSE, self.I_REWARD, self.I_REWARD_GOLD]
+        while 1:
+            self.screenshot()
+
+            if self.appear(self.I_E_SETTINGS_BUTTON) or self.appear(self.I_E_AUTO_ROTATE_ON) or self.appear(self.I_E_AUTO_ROTATE_OFF) or self.appear(self.I_LOCK_ON) or self.appear(self.I_LOCK_OFF):
+                break
+
+            # 处理战斗类元素
+            action_click = random.choice([self.C_REWARD_2, self.C_REWARD_3])
+            if any(self.appear_then_click(item, action=action_click, interval=1) for item in click_list):
+                continue
+            # 误点聊天频道会自动关闭
+            if self.appear_then_click(RestartAssets.I_HARVEST_CHAT_CLOSE):
+                continue
         return True
 
     def wait_world_stable(self) -> bool:

@@ -36,6 +36,24 @@
     "description": "自动轮换关闭"
   },
   {
+    "itemName": "lock_off",
+    "imageName": "lock_off.png",
+    "roiFront": "888,644,155,53",
+    "roiBack": "888,644,155,53",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "锁定阵容关闭"
+  },
+  {
+    "itemName": "lock_on",
+    "imageName": "lock_on.png",
+    "roiFront": "888,644,155,53",
+    "roiBack": "888,644,155,53",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "锁定阵容开启"
+  },
+  {
     "itemName": "e_open_settings",
     "imageName": "res_e_open_settings.png",
     "roiFront": "466,110,170,50",
@@ -232,5 +250,14 @@
     "method": "Template matching",
     "threshold": 0.8,
     "description": "箭头，打开"
+  },
+  {
+    "itemName": "e_reward_statistics",
+    "imageName": "gb_reward_statistics.png",
+    "roiFront": "52,38,54,59",
+    "roiBack": "52,38,54,59",
+    "method": "Template matching",
+    "threshold": 0.7,
+    "description": "探索结算时左上角统计图标"
   }
 ]

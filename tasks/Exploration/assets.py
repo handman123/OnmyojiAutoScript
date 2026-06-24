@@ -79,6 +79,10 @@ class ExplorationAssets:
 	I_E_AUTO_ROTATE_ON = RuleImage(roi_front=(104,649,153,44), roi_back=(104,649,153,44), threshold=0.9, method="Template matching", file="./tasks/Exploration/res/res_e_auto_rotate_on.png")
 	# 自动轮换关闭 
 	I_E_AUTO_ROTATE_OFF = RuleImage(roi_front=(108,650,150,46), roi_back=(108,650,150,46), threshold=0.85, method="Template matching", file="./tasks/Exploration/res/res_e_auto_rotate_off.png")
+	# 锁定阵容关闭 
+	I_LOCK_OFF = RuleImage(roi_front=(888,644,155,53), roi_back=(888,644,155,53), threshold=0.85, method="Template matching", file="./tasks/Exploration/res/lock_off.png")
+	# 锁定阵容开启 
+	I_LOCK_ON = RuleImage(roi_front=(888,644,155,53), roi_back=(888,644,155,53), threshold=0.85, method="Template matching", file="./tasks/Exploration/res/lock_on.png")
 	# 成功打开设置 
 	I_E_OPEN_SETTINGS = RuleImage(roi_front=(466,110,170,50), roi_back=(466,110,170,50), threshold=0.8, method="Template matching", file="./tasks/Exploration/res/res_e_open_settings.png")
 	# 选择式神稀有度 
@@ -123,7 +127,8 @@ class ExplorationAssets:
 	I_EXP_ARROW_RIGHT = RuleImage(roi_front=(1240,117,24,21), roi_back=(1178,74,100,100), threshold=0.8, method="Template matching", file="./tasks/Exploration/res/res_exp_arrow_right.png")
 	# 箭头，打开 
 	I_EXP_ARROW_LEFT = RuleImage(roi_front=(1244,115,18,26), roi_back=(1178,78,100,100), threshold=0.8, method="Template matching", file="./tasks/Exploration/res/res_exp_arrow_left.png")
-
+	# 探索结算时左上角统计图标 
+	I_E_REWARD_STATISTICS = RuleImage(roi_front=(52,38,54,59), roi_back=(52,38,54,59), threshold=0.7, method="Template matching", file="./tasks/Exploration/res/gb_reward_statistics.png")
 
 	# Long Click Rule Assets
 	# description 
