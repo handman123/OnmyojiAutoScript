@@ -37,7 +37,7 @@ class SoloExploration(BaseExploration):
             self.screenshot()
             scene = self.get_current_scene()
             logger.info(f'[run_solo] Current scene: {scene.name}')  # TODO 2026.06.22 之后删掉这个刷屏的
-            #
+            # 探索大世界界面
             if scene == Scene.WORLD:
                 # 打开右边箭头
                 if not self.wait_world_stable():
@@ -51,7 +51,7 @@ class SoloExploration(BaseExploration):
                 self.open_expect_level()
                 explore_init = False
                 continue
-            #
+            # 探索进入前的弹窗
             elif scene == Scene.ENTRANCE:
                 if self.check_exit():
                     break
@@ -67,10 +67,10 @@ class SoloExploration(BaseExploration):
                         self.ui_click(self.I_E_AUTO_ROTATE_OFF, stop=self.I_E_AUTO_ROTATE_ON)
                     explore_init = True
                     continue
-                # 小纸人
-                if self.appear(self.I_BATTLE_REWARD):
-                    if self.ui_get_reward(self.I_BATTLE_REWARD):
-                        continue
+                # 小纸人（小纸人无需领取）
+                # if self.appear(self.I_BATTLE_REWARD):
+                #     if self.ui_get_reward(self.I_BATTLE_REWARD):
+                #         continue
                 # boss
                 if self.appear(self.I_BOSS_BATTLE_BUTTON):
                     if self.fire(self.I_BOSS_BATTLE_BUTTON):
@@ -94,11 +94,11 @@ class SoloExploration(BaseExploration):
                         continue
                 else:
                     search_fail_cnt += 1
-            #
+            # 中途接手战斗
             elif scene == Scene.BATTLE_PREPARE or scene == Scene.BATTLE_FIGHTING:
                 self.check_take_over_battle(is_screenshot=False, config=self._config.general_battle_config)
             elif scene == Scene.UNKNOWN:
-                if scene_known > 10:
+                if scene_known > 6:
                     logger.info(f'Scene unknown, try exit')
                     scene_known = 0
                     self.quit_explore()
