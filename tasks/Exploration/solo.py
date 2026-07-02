@@ -15,6 +15,7 @@ from tasks.Exploration.config import ChooseRarity, AutoRotate, UserStatus, Explo
 class SoloExploration(BaseExploration):
     INVITE_FLAG_OFF = (157, 109, 83)
     INVITE_FLAG_ON = (227, 193, 153)
+    explore_init = False
 
     @cached_property
     def _invite_config(self) -> InviteConfig:
@@ -29,7 +30,6 @@ class SoloExploration(BaseExploration):
 
     def run_solo(self):
         logger.hr('solo')
-        explore_init = False
         search_fail_cnt = 0
         scene_known = 0
 
@@ -49,14 +49,12 @@ class SoloExploration(BaseExploration):
                 if self.check_exit():
                     break
                 self.open_expect_level()
-                explore_init = False
                 continue
             # 探索进入前的弹窗
             elif scene == Scene.ENTRANCE:
                 if self.check_exit():
                     break
                 self.ui_click(self.I_E_EXPLORATION_CLICK, stop=self.I_E_SETTINGS_BUTTON)
-                explore_init = False
                 continue
             #
             elif scene == Scene.MAIN:
@@ -120,7 +118,6 @@ class SoloExploration(BaseExploration):
 
     def run_leader(self):
         logger.hr('leader')
-        explore_init = False
         search_fail_cnt = 0
         friend_leave_timer = Timer(10)
 
@@ -159,7 +156,7 @@ class SoloExploration(BaseExploration):
                     # 可以加一下，清空第一次 explore_init
                     continue
                 self.open_expect_level()
-                explore_init = False
+                # explore_init = False
                 continue
 
             # 邀请好友, 非常有可能是后面邀请好友，然后直接跳到组队了
@@ -199,12 +196,12 @@ class SoloExploration(BaseExploration):
                     break
             ##
             elif scene == Scene.MAIN:
-                if not explore_init:
-                    self.ui_click(self.I_E_AUTO_ROTATE_OFF, stop=self.I_E_AUTO_ROTATE_ON)
+                if not self.explore_init:
                     if self._config.exploration_config.auto_rotate == AutoRotate.yes:
                         self.enter_settings_and_do_operations()
+                    self.ui_click(self.I_E_AUTO_ROTATE_OFF, stop=self.I_E_AUTO_ROTATE_ON)
                     friend_leave_timer = Timer(10)
-                    explore_init = True
+                    self.explore_init = True
                     continue
                 # 小纸人
                 if self.appear(self.I_BATTLE_REWARD):
@@ -263,7 +260,6 @@ class SoloExploration(BaseExploration):
 
     def run_member(self):
         logger.hr('member')
-        explore_init = False
         wait_timer = Timer(50)
         friend_leave_timer = Timer(10)
 
@@ -288,7 +284,6 @@ class SoloExploration(BaseExploration):
                     logger.warning('Wait timer reached')
                     break
 
-                explore_init = False
                 continue
             #
             elif scene == Scene.ENTRANCE:
@@ -298,11 +293,11 @@ class SoloExploration(BaseExploration):
                 continue
             #
             elif scene == Scene.MAIN:
-                if not explore_init:
-                    self.ui_click(self.I_E_AUTO_ROTATE_OFF, stop=self.I_E_AUTO_ROTATE_ON)
+                if not self.explore_init:
                     if self._config.exploration_config.auto_rotate == AutoRotate.yes:
                         self.enter_settings_and_do_operations()
-                    explore_init = True
+                    self.ui_click(self.I_E_AUTO_ROTATE_OFF, stop=self.I_E_AUTO_ROTATE_ON)
+                    self.explore_init = True
                     continue
                 # 小纸人
                 if self.appear(self.I_BATTLE_REWARD):
