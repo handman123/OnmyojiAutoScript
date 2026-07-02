@@ -85,13 +85,25 @@ class SoloExploration(BaseExploration):
                 # 向后拉,寻找怪
                 if search_fail_cnt >= 4:
                     search_fail_cnt = 0
-                    if (self._config.exploration_config.exploration_level == ExplorationLevel.EXPLORATION_28\
-                        and self.appear(self.I_SWIPE_END))\
-                            or self._match_end.stable(self.device.image, refresh_after_stable=True):
+                    # if (self._config.exploration_config.exploration_level == ExplorationLevel.EXPLORATION_28\
+                    #     and self.appear(self.I_SWIPE_END))\
+                    #         or self._match_end.stable(self.device.image, refresh_after_stable=True):
+                    # 困28判断逻辑
+                    if self._config.exploration_config.exploration_level == ExplorationLevel.EXPLORATION_28 \
+                            and self.appear(self.I_SWIPE_END):
+                        logger.info("退出: branch 1 (I_SWIPE_END)")
                         self.quit_explore()
                         continue
-                    if self.swipe(self.S_SWIPE_BACKGROUND_RIGHT, interval=3):
+                    # 通用判断逻辑
+                    logger.info(f'swipe_end_check: branch 2, roi_front={self._match_end.roi_front}, _image={None if self._match_end._image is None else self._match_end._image.shape}')
+                    if self._match_end.stable(self.device.image, refresh_after_stable=True):
+                        logger.info("退出: branch 2 (_match_end.stable)")
+                        self.quit_explore()
                         continue
+                    logger.info(f'self.I_SWIPE_END.image info: {self.I_SWIPE_END.image.shape}')
+                    self.swipe(self.S_SWIPE_BACKGROUND_RIGHT, interval=3)
+                    logger.info("向右滑动")
+                    continue
                 else:
                     search_fail_cnt += 1
             # 中途接手战斗
@@ -226,11 +238,19 @@ class SoloExploration(BaseExploration):
                 # 向后拉,寻找怪
                 if search_fail_cnt >= 4:
                     search_fail_cnt = 0
-                    if (self._config.exploration_config.exploration_level == ExplorationLevel.EXPLORATION_28\
-                        and self.appear(self.I_SWIPE_END))\
-                            or self._match_end.stable(self.device.image, refresh_after_stable=True):
+                    # if (self._config.exploration_config.exploration_level == ExplorationLevel.EXPLORATION_28\
+                    #     and self.appear(self.I_SWIPE_END))\
+                    #         or self._match_end.stable(self.device.image, refresh_after_stable=True):
+                    if self._config.exploration_config.exploration_level == ExplorationLevel.EXPLORATION_28 \
+                            and self.appear(self.I_SWIPE_END):
+                        logger.info("退出: branch 1 (I_SWIPE_END)")
                         self.quit_explore()
-                        continue
+                    else:
+                        logger.info(f'swipe_end_check: branch 2, roi_front={self._match_end.roi_front}, _image={None if self._match_end._image is None else self._match_end._image.shape}')
+                        if self._match_end.stable(self.device.image, refresh_after_stable=True):
+                            logger.info("退出: branch 2 (_match_end.stable)")
+                            self.quit_explore()
+                            continue
                     if self.swipe(self.S_SWIPE_BACKGROUND_RIGHT, interval=4.5):
                         continue
                 else:

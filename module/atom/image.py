@@ -154,7 +154,7 @@ class RuleImage(RuleImageMallResourceMixin):
         mat = self.image
 
         if mat is None or mat.shape[0] == 0 or mat.shape[1] == 0:
-            logger.error(f"Template image is invalid: {mat.shape}")
+            logger.error(f"Template image is invalid: {mat.shape}, name={self.name}, file={self.file}")
             return False  # 模板无效，匹配失败
 
         res = cv2.matchTemplate(source, mat, cv2.TM_CCOEFF_NORMED)
@@ -197,7 +197,7 @@ class RuleImage(RuleImageMallResourceMixin):
         mat = self.image
 
         if mat is None or mat.shape[0] == 0 or mat.shape[1] == 0:
-            logger.error(f"Template image is invalid: {mat.shape}")
+            logger.error(f"Template image is invalid: {mat.shape}, name={self.name}, file={self.file}")
             return False
 
         # 预计算模板尺寸
