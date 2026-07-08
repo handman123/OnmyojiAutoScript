@@ -28,6 +28,7 @@ from multiprocessing.queues import Queue
 from module.config.utils import convert_to_underscore
 from module.config.config import Config
 from module.config.config_model import ConfigModel
+from module.config.queue_manager import QueueManager
 from module.device.device import Device
 from module.device.env import IS_WINDOWS
 from module.base.utils import load_module
@@ -57,6 +58,8 @@ class Script:
         self.failure_record = {}
         # 运行loop的线程
         self.loop_thread: Thread = None
+        # 跨进程排队管理器（仅在 queue_mode=True 时初始化）
+        self.queue_manager: QueueManager = None
 
     @cached_property
     def config(self) -> "Config":
@@ -314,11 +317,84 @@ class Script:
             now = datetime.now()
             # 任务时间到了返回任务名称
             if task.next_run <= now:
+                # 排队模式：尝试获取执行权
+                if not self._try_acquire_queue_token():
+                    # 未获取到执行权，重新加载配置后重试
+                    del_cached_property(self, "config")
+                    continue
                 return task.command
             # 根据策略执行等待逻辑
+            if self.queue_manager:
+                if self.queue_manager.should_release(
+                    pending_task=self.config.pending_task,
+                    waiting_task=self.config.waiting_task,
+                    idle_threshold_minutes=self.config.script.optimization.queue_idle_threshold
+                ):
+                    self.queue_manager.release()
             if not self._handle_wait_during_idle(task.next_run):
                 # 若等待被打断, 则刷新配置
                 del_cached_property(self, "config")
+
+    def _try_acquire_queue_token(self) -> bool:
+        """
+        尝试获取排队执行权。
+        如果排队模式未启用，直接返回 True。
+        如果排队模式启用但未能获取到执行权，进入等待循环直到获取成功或配置变更。
+
+        Returns:
+            True: 获取得执行权，可以执行任务
+            False: 等待被配置变更打断，调用方应重新加载配置后重试
+        """
+        # 延迟初始化：首次调用时根据配置决定是否创建 QueueManager
+        if self.queue_manager is None:
+            try:
+                if self.config.script.optimization.queue_mode:
+                    self.queue_manager = QueueManager(self.config_name)
+                    logger.info(f"[Queue] Queue mode enabled for '{self.config_name}'")
+                else:
+                    return True  # 未启用排队模式，直接放行
+            except Exception:
+                return True  # 配置读取异常，安全降级为直接放行
+
+        # 尝试获取执行权
+        if self.queue_manager.try_acquire():
+            return True
+
+        # 未获取到，进入等待循环
+        logger.info(f"[Queue] '{self.config_name}' waiting for execution token...")
+        # 如果配置了闲置关闭模拟器且模拟器正在运行，关闭以节省资源
+        if (self.config.script.optimization.when_task_queue_empty == 'close_game'
+                and not self._emulator_down
+                and 'device' in self.__dict__):
+            try:
+                self.device.emulator_stop()
+                self._emulator_down = True
+                logger.info(f"[Queue] Emulator closed during queue wait")
+            except Exception:
+                pass
+        while True:
+            self.config.start_watching()
+            time.sleep(5)
+
+            # 检查配置文件是否被修改
+            if self.config.should_reload():
+                logger.info(f"[Queue] Config changed, re-evaluating")
+                return False
+
+            # 重新加载配置，检查排队模式是否被关闭
+            del_cached_property(self, "config")
+            try:
+                if not self.config.script.optimization.queue_mode:
+                    logger.info(f"[Queue] Queue mode disabled, proceeding without token")
+                    self.queue_manager.remove_from_queue()
+                    self.queue_manager = None
+                    return True
+            except Exception:
+                pass
+
+            # 重试获取执行权
+            if self.queue_manager.try_acquire():
+                return True
 
     def _handle_wait_during_idle(self, next_run: datetime) -> bool:
         """
@@ -622,6 +698,8 @@ class Script:
                 exit(1)
 
             if success:
+                if self.queue_manager:
+                    self.queue_manager.heartbeat()
                 del_cached_property(self, 'config')
                 continue
             elif self.config.script.error.handle_error:

@@ -123,6 +123,13 @@ class ScriptProcess(ScriptWSManager):
 def func(config: str, state_queue: multiprocessing.Queue, log_pipe_in) -> None:
     def signal_handler(signum, frame):
         logger.info(f'Script {config} received signal {signum}, exiting gracefully')
+        # 清理排队状态，避免死锁
+        try:
+            from module.config.queue_manager import QueueManager
+            qm = QueueManager(config)
+            qm.remove_from_queue()
+        except Exception:
+            pass
         log_pipe_in.close()
         state_queue.close()
         sys.exit(0)
