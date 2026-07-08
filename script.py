@@ -319,13 +319,6 @@ class Script:
             if task.next_run <= now:
                 return task.command
             # 根据策略执行等待逻辑
-            if self.queue_manager:
-                if self.queue_manager.should_release(
-                    pending_task=self.config.pending_task,
-                    waiting_task=self.config.waiting_task,
-                    idle_threshold_minutes=self.config.script.optimization.queue_idle_threshold
-                ):
-                    self.queue_manager.release()
             if not self._try_acquire_queue_token():
                 del_cached_property(self, "config")
                 continue
@@ -436,6 +429,8 @@ class Script:
 
         if self._emulator_down:
             logger.info("Wake emulator before next task")
+            if not self._try_acquire_queue_token():
+                return False
             self.device = Device(self.config)
             self._emulator_down = False
 
@@ -457,6 +452,13 @@ class Script:
             logger.info("Close emulator during wait")
             self.device.emulator_stop()
             self._emulator_down = True
+
+            if self.queue_manager and self.queue_manager.should_release(
+                pending_task=self.config.pending_task,
+                waiting_task=self.config.waiting_task,
+                idle_threshold_minutes=self.config.script.optimization.queue_idle_threshold
+            ):
+                self.queue_manager.release()
 
             if not self._wait_until_with_emulator_preheat(next_run):
                 return False
@@ -500,6 +502,13 @@ class Script:
             self.device.emulator_stop()
             self._emulator_down = True
 
+            if self.queue_manager and self.queue_manager.should_release(
+                pending_task=self.config.pending_task,
+                waiting_task=self.config.waiting_task,
+                idle_threshold_minutes=self.config.script.optimization.queue_idle_threshold
+            ):
+                self.queue_manager.release()
+
             if not self._wait_until_with_emulator_preheat(next_run):
                 return False
 
@@ -509,6 +518,12 @@ class Script:
         logger.info("Goto main page during wait")
         self.run("GotoMain")
         self.device.release_during_wait()
+        if self.queue_manager and self.queue_manager.should_release(
+            pending_task=self.config.pending_task,
+            waiting_task=self.config.waiting_task,
+            idle_threshold_minutes=self.config.script.optimization.queue_idle_threshold
+        ):
+            self.queue_manager.release()
         return self.wait_until(next_run)
 
     def _wait_stay_there(self, next_run: datetime) -> bool:
@@ -655,6 +670,10 @@ class Script:
             if self.is_first_task and task == 'Restart':
                 logger.info('Skip task `Restart` at scheduler start')
                 self.config.task_delay(task='Restart', success=True, server=True)
+                del_cached_property(self, 'config')
+                continue
+
+            if not self._try_acquire_queue_token():
                 del_cached_property(self, 'config')
                 continue
 
