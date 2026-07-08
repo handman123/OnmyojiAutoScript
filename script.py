@@ -317,11 +317,6 @@ class Script:
             now = datetime.now()
             # 任务时间到了返回任务名称
             if task.next_run <= now:
-                # 排队模式：尝试获取执行权
-                if not self._try_acquire_queue_token():
-                    # 未获取到执行权，重新加载配置后重试
-                    del_cached_property(self, "config")
-                    continue
                 return task.command
             # 根据策略执行等待逻辑
             if self.queue_manager:
@@ -331,6 +326,9 @@ class Script:
                     idle_threshold_minutes=self.config.script.optimization.queue_idle_threshold
                 ):
                     self.queue_manager.release()
+            if not self._try_acquire_queue_token():
+                del_cached_property(self, "config")
+                continue
             if not self._handle_wait_during_idle(task.next_run):
                 # 若等待被打断, 则刷新配置
                 del_cached_property(self, "config")
@@ -541,6 +539,9 @@ class Script:
         """
         if command == 'start' or command == 'goto_main':
             logger.error(f'Invalid command `{command}`')
+
+        if not self._try_acquire_queue_token():
+            return False
 
         try:
             self.device.screenshot()

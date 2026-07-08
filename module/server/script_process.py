@@ -167,6 +167,14 @@ def func(config: str, state_queue: multiprocessing.Queue, log_pipe_in) -> None:
         logger.exception(f'Run script {config} error')
         logger.error(f'Error: {e}')
         raise
+    finally:
+        try:
+            from module.config.config import Config
+            if Config(config_name=config).script.optimization.queue_mode:
+                from module.config.queue_manager import QueueManager
+                QueueManager(config).remove_from_queue()
+        except Exception as e:
+            logger.warning(f'Queue cleanup failed for {config}: {e}')
 
 
 if __name__ == '__main__':
