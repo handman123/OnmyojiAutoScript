@@ -558,6 +558,16 @@ class Script:
         if not self._try_acquire_queue_token():
             return False
 
+        if self.queue_manager and self.queue_manager.token_lost:
+            logger.warning(f'Token lost, stopping emulator and rejoining queue')
+            try:
+                self.device.emulator_stop()
+            except Exception:
+                pass
+            self._emulator_down = True
+            self.queue_manager.release()
+            return False
+
         try:
             self.device.screenshot()
             module_name = 'script_task'
