@@ -282,21 +282,25 @@ class LoginHandler(BaseTask, RestartAssets, GameUiAssets, GeneralBuffAssets):
         self.O_LOGIN_SPECIFIC_SERVE.keyword = character
 
     def harvest_mail(self) -> bool:
+        self.screenshot()
         if not self.appear_multi_scale(self.I_HARVEST_MAIL,scale_range=(0.8, 1.1)) and \
                 not self.appear(self.I_HARVEST_MAIL_COPY):
             if not self.appear(self.I_READ_ALL_MAIL):
                 return False
         logger.info('Harvest mail')
+        enter_mail_timer = Timer(10).start()
         while 1:
             self.screenshot()
+            if enter_mail_timer.reached():
+                break
             if self.appear(self.I_READ_ALL_MAIL):
                 break
             if self.appear_then_click_multi_scale(self.I_HARVEST_MAIL, interval=1.5, scale_range=(0.8, 1.1)):
                 continue
             if self.appear_then_click(self.I_HARVEST_MAIL_COPY, interval=1.5):
                 continue
-        timeout_timer = Timer(3).start()
         logger.info('Exec harvest mail')
+        timeout_timer = Timer(3).start()
         while 1:
             self.screenshot()
             if timeout_timer.reached():
