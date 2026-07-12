@@ -157,9 +157,12 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, AreaBossAssets):
                 case AreaBossFloor.ONE: self.switch_to_floor_1()
                 case AreaBossFloor.TEN: self.switch_to_floor_10()
                 case AreaBossFloor.DEFAULT: logger.info("Not change floor")
-        elif self.config.area_boss.boss.Attack_60:
-            # 普通难度：拉到60级
-            self.switch_to_level_60()
+        else:
+            # 普通难度：如果当前是极难度，切回普通
+            if self.get_difficulty():
+                self.switch_difficulty(False)
+            if self.config.area_boss.boss.Attack_60:
+                self.switch_to_level_60()
         
         result = True
         if not self.start_fight():
