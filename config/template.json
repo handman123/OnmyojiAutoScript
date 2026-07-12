@@ -102,6 +102,7 @@
       "boss_reward": false,
       "reward_floor": "一星",
       "use_collect": false,
+      "use_ultra": false,
       "Attack_60": false
     },
     "general_battle": {
