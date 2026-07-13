@@ -34,9 +34,8 @@ def retry(func):
             except RequestHumanTakeover:
                 break
             # Emulator not running, try to restart it
-            except EmulatorNotRunningError as e:
-                logger.error(e)
-                logger.warning('Emulator not running, restarting')
+            except EmulatorNotRunningError:
+                logger.error('Emulator not running, attempting to restart')
                 if hasattr(self, 'emulator_start'):
                     self.emulator_start()
 

@@ -123,11 +123,9 @@ class ScriptProcess(ScriptWSManager):
 def func(config: str, state_queue: multiprocessing.Queue, log_pipe_in) -> None:
     def signal_handler(signum, frame):
         logger.info(f'Script {config} received signal {signum}, exiting gracefully')
-        # 清理排队状态，避免死锁
         try:
-            from module.config.queue_manager import QueueManager
-            qm = QueueManager(config)
-            qm.remove_from_queue()
+            from module.config.instance_guard import InstanceGuard
+            InstanceGuard(config).remove_from_queue()
         except Exception:
             pass
         log_pipe_in.close()
@@ -169,12 +167,10 @@ def func(config: str, state_queue: multiprocessing.Queue, log_pipe_in) -> None:
         raise
     finally:
         try:
-            from module.config.config import Config
-            if Config(config_name=config).script.optimization.queue_mode:
-                from module.config.queue_manager import QueueManager
-                QueueManager(config).remove_from_queue()
-        except Exception as e:
-            logger.warning(f'Queue cleanup failed for {config}: {e}')
+            from module.config.instance_guard import InstanceGuard
+            InstanceGuard(config).remove_from_queue()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':
