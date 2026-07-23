@@ -127,6 +127,7 @@ class _Heartbeat:
 
     def stop(self) -> None:
         """停止心跳线程。"""
+        logger.error(f"[InstanceGuard] Heartbeat stopped for '{self._config_name}'")
         if self._stop_event:
             self._stop_event.set()
         self._thread = None
@@ -134,8 +135,8 @@ class _Heartbeat:
 
     def _loop(self) -> None:
         """心跳循环。每 INTERVAL 秒刷新 timestamp。"""
-        while not self._stop_event.wait(timeout=self.INTERVAL):
-            try:
+        try:
+            while not self._stop_event.wait(timeout=self.INTERVAL):
                 with self._state._lock:
                     state = self._state.read()
                     if state["current"] == self._config_name:
@@ -148,8 +149,8 @@ class _Heartbeat:
                             f"current holder: {state['current']}")
                         self._token_lost.set()
                         return
-            except Exception as e:
-                logger.error(f"[InstanceGuard] Heartbeat error: {e}")
+        except Exception as e:
+            logger.error(f"[InstanceGuard] Heartbeat error: {e}")
 
 
 class InstanceGuard:
