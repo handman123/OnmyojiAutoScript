@@ -141,6 +141,7 @@ class _Heartbeat:
                     state = self._state.read()
                     if state["current"] == self._config_name:
                         state["timestamp"] = datetime.now().isoformat()
+                        logger.info(f"[InstanceGuard] '{self._config_name}' refresh token")
                         self._state.write(state)
                     elif self._config_name not in state.get("queue", []):
                         # 不在 current 也不在 queue，说明被强制移除了
