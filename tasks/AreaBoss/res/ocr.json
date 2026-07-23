@@ -52,5 +52,14 @@
     "method": "Default",
     "keyword": "",
     "description": "地鬼名字"
+  },
+  {
+    "itemName": "ab_boss_restriction",
+    "roiFront": "167,366,293,49",
+    "roiBack": "167,366,293,49",
+    "mode": "Full",
+    "method": "Default",
+    "keyword": "",
+    "description": "地狱鬼王boss挑战规则"
   }
 ]

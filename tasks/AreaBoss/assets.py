@@ -116,5 +116,7 @@ class AreaBossAssets:
 	O_AB_NUM_OF_CHALLENGE = RuleOcr(roi=(270,630,150,36), area=(270,630,150,36), mode="Digit", method="Default", keyword="", name="ab_num_of_challenge")
 	# 地鬼名字 
 	O_AB_BOSS_NAME = RuleOcr(roi=(114,36,248,69), area=(114,36,248,69), mode="Full", method="Default", keyword="", name="ab_boss_name")
+	# 普通地狱鬼王的boss规则
+	O_AB_BOSS_RESTRICTION = RuleOcr(roi=(167,366,293,49), area=(167,366,293,49), mode="Single", method="Default", keyword="", name="ab_boss_restriction")
 
 

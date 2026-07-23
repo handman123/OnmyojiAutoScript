@@ -174,6 +174,32 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, AreaBossAssets):
         return result
 
     def start_fight(self) -> bool:
+        # 是否开启切换预设，如果规则限制队伍组成，则不切换预设
+        self.screenshot()
+        general_battle = self.config.area_boss.general_battle
+        preset_enable = general_battle.preset_enable
+        if preset_enable:
+            restriction_text = self.O_AB_BOSS_RESTRICTION.ocr(self.device.image)
+            logger.info(f"地狱鬼王规则：{restriction_text}")
+            # 以下规则限制了上阵式神的稀有度/种类，无法通过预设队伍满足
+            restrict_preset_rules = [
+                "至少3个SSR卡上阵",
+                "至少3个SR卡上阵",
+                "至少4个SR卡上阵",
+                "至少5个SR卡上阵",
+                "至少2个R卡上阵",
+                "至少3个R卡上阵",
+                "至少4个R卡上阵",
+                "限定5个水系式神",
+                "限定5个动物系式神",
+                "限定5个女系式神",
+            ]
+            for rule in restrict_preset_rules:
+                if rule in restriction_text:
+                    logger.info(f"Boss restriction [{rule}] detected, disable preset team")
+                    general_battle.preset_enable = False
+                    break
+
         while 1:
             self.screenshot()
             if self.appear_then_click(self.I_FIRE, interval=1):
@@ -181,7 +207,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, AreaBossAssets):
             if not self.appear(self.I_AB_CLOSE_RED):  # 如果这个红色的关闭不见了才可以进行继续
                 break
 
-        return self.run_general_battle(self.config.area_boss.general_battle)
+        return self.run_general_battle(general_battle)
 
     def setup_ultra(self) -> bool:
         # 尝试切换
