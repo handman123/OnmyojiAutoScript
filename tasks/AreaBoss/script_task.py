@@ -176,7 +176,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, AreaBossAssets):
     def start_fight(self) -> bool:
         # 是否开启切换预设，如果规则限制队伍组成，则不切换预设
         self.screenshot()
-        general_battle = self.config.area_boss.general_battle
+        general_battle = self.config.area_boss.general_battle.model_copy()
         preset_enable = general_battle.preset_enable
         if preset_enable:
             restriction_text = self.O_AB_BOSS_RESTRICTION.ocr(self.device.image)
@@ -193,6 +193,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, AreaBossAssets):
                 "限定5个水系式神",
                 "限定5个动物系式神",
                 "限定5个女系式神",
+                "至少1个奉为达摩出战"
             ]
             for rule in restrict_preset_rules:
                 if rule in restriction_text:
