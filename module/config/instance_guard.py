@@ -201,6 +201,7 @@ class InstanceGuard:
             # 自己已是持有者，刷新心跳
             if state["current"] == self.config_name:
                 state["timestamp"] = datetime.now().isoformat()
+                self._heartbeat.start()
                 self._state.write(state)
                 return True
 
