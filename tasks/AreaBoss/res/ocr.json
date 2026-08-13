@@ -61,5 +61,12 @@
     "method": "Default",
     "keyword": "",
     "description": "地狱鬼王boss挑战规则"
+    "itemName": "ab_reputation",
+    "roiFront": "1180,61,82,32",
+    "roiBack": "1180,61,82,32",
+    "mode": "Digit",
+    "method": "Default",
+    "keyword": "",
+    "description": "声望值"
   }
 ]

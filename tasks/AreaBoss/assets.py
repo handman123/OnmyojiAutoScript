@@ -118,5 +118,7 @@ class AreaBossAssets:
 	O_AB_BOSS_NAME = RuleOcr(roi=(114,36,248,69), area=(114,36,248,69), mode="Full", method="Default", keyword="", name="ab_boss_name")
 	# 普通地狱鬼王的boss规则
 	O_AB_BOSS_RESTRICTION = RuleOcr(roi=(167,366,293,49), area=(167,366,293,49), mode="Single", method="Default", keyword="", name="ab_boss_restriction")
+	# 声望值 
+	O_AB_REPUTATION = RuleOcr(roi=(1180,61,82,32), area=(1180,61,82,32), mode="Digit", method="Default", keyword="", name="ab_reputation")
 
 
