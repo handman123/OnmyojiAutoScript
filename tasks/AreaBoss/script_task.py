@@ -209,7 +209,8 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, AreaBossAssets):
                 "限定5个水系式神",
                 "限定5个动物系式神",
                 "限定5个女系式神",
-                "至少1个奉为达摩出战"
+                "至少1个奉为达摩出战",
+                "限定5个飞行系式神"
             ]
             for rule in restrict_preset_rules:
                 if rule in restriction_text:
