@@ -12,10 +12,11 @@ if sys.platform == 'win32':
     from winerror import NOERROR
 
 from tasks.GameUi.game_ui import GameUi
-from tasks.GameUi.page import page_main, page_summon, page_guild, page_mall, page_friends
+from tasks.GameUi.page import page_main, page_summon, page_guild, page_mall, page_friends, random_click
 from tasks.DailyTrifles.config import DailyTriflesConfig
 from tasks.DailyTrifles.assets import DailyTriflesAssets
 from tasks.Component.Summon.summon import Summon
+from tasks.Component.Buy.assets import BuyAssets
 
 from module.logger import logger
 from module.exception import TaskEnd
@@ -220,6 +221,7 @@ class ScriptTask(GameUi, Summon, DailyTriflesAssets):
         if self.config.daily_trifles.trifles_config.store_sign:
             self.run_store_sign()
         if self.config.daily_trifles.trifles_config.buy_sushi_count > 0:
+            logger.info("start buying sushi")
             self.run_buy_sushi()
 
         self.ui_click(self.I_UI_BACK_YELLOW, self.I_CHECK_MALL)
@@ -254,17 +256,25 @@ class ScriptTask(GameUi, Summon, DailyTriflesAssets):
             if self.appear_then_click(RichManAssets.I_SIDE_SURE_SPECIAL, interval=1):
                 continue
 
-        def detect_buy_count(base_element) -> (int, int):
+        def detect_buy_count(base_element, price_offset=None) -> (int, int):
             # 返回count,price
+            # price_offset: 价格数字条相对匹配元素左上角的偏移 (dx, dy, w, h)
+            # 不传则默认价格在元素右下方(标签页卡片, 原逻辑)
             MAX_PRICE = 9999
             MAX_COUNT = 9999
             roi = copy.deepcopy(base_element.roi_front)
-            roi[0] = roi[0] + roi[2]
-            roi[1] = roi[1] + roi[3] - 30
-            roi[2] = 60
-            roi[3] = 30
+            if price_offset is None:
+                dx, dy, w, h = (roi[2], roi[3] - 30, 60, 30)
+            else:
+                dx, dy, w, h = price_offset
+            roi[0] = roi[0] + dx
+            roi[1] = roi[1] + dy
+            roi[2] = w
+            roi[3] = h
             self.O_STORE_SUSHI_PRICE.roi = roi
+            logger.info(f"detect_buy_count({base_element.name}) roi = {roi}")
             _price = self.O_STORE_SUSHI_PRICE.detect_text(self.device.image)
+            logger.info(f"detect_buy_count({base_element.name}) _price = {_price}")
             # 保守策略，避免OCR错误购买
             try:
                 _price = int(_price)
@@ -284,11 +294,20 @@ class ScriptTask(GameUi, Summon, DailyTriflesAssets):
             # if count >= self.config.model.daily_trifles.trifles_config.buy_sushi_count:
             #     break
             if self.appear(self.I_STORE_COST_TYPE_JADE):
-                count, price = detect_buy_count(self.I_STORE_COST_TYPE_JADE)
+                # 弹窗内: 价格数字在勾玉图标右侧, 与图标垂直居中 (模板50x60)
+                count, price = detect_buy_count(self.I_STORE_COST_TYPE_JADE, price_offset=(50, 15, 60, 30))
+                logger.info(f"count = {count}, price = {price}")
                 if count >= self.config.daily_trifles.trifles_config.buy_sushi_count:
+                    logger.info(f"count greater than {self.config.daily_trifles.trifles_config.buy_sushi_count}")
                     break
                 self.ui_click_until_disappear(self.I_STORE_COST_TYPE_JADE, interval=2)
                 logger.info(f"Buy Sushi With {price} Jade")
+                continue
+
+            # 购买成功后弹窗会遮挡标签页, 随机点击关闭弹窗再进入下一轮
+            if self.appear(BuyAssets.I_BUY_SUCCESS):
+                self.ui_click_until_smt_disappear(random_click(), BuyAssets.I_BUY_SUCCESS, interval=0.8)
+                logger.info('Get reward success')
                 continue
 
             if self.appear(self.I_SPECIAL_SUSHI):
@@ -297,6 +316,7 @@ class ScriptTask(GameUi, Summon, DailyTriflesAssets):
                 if count >= self.config.daily_trifles.trifles_config.buy_sushi_count:
                     break
                 self.ui_click(self.I_SPECIAL_SUSHI, stop=self.I_STORE_COST_TYPE_JADE, interval=2)
+                logger.info(f"open the buying dialog")
                 continue
         return
 
