@@ -518,7 +518,7 @@ class BaseTask(GlobalGameAssets, CostumeBase):
         ocr识别目标
         :param interval:
         :param target:
-        :param exact: 是否只匹配完整的单个 OCR 文本
+        :param exact: 是否只匹配完整的单个 OCR 文本， 加上这个参数是为了 https://github.com/runhey/OnmyojiAutoScript/issues/1782
         :return: 如果target有keyword或者是keyword存在，返回是True，否则返回False
                  但是没有指定keyword，返回的是匹配到的值，具体取决于target的mode
         """
@@ -571,7 +571,7 @@ class BaseTask(GlobalGameAssets, CostumeBase):
         :param action:
         :param interval:
         :param duration:
-        :param exact: 是否只匹配完整的单个 OCR 文本
+        :param exact: 是否只匹配完整的单个 OCR 文本 ， 加上这个参数是为了 https://github.com/runhey/OnmyojiAutoScript/issues/1782
         :return:
         """
         appear = self.ocr_appear(target, interval, exact=exact)
