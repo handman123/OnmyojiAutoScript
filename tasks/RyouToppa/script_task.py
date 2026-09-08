@@ -12,6 +12,7 @@ from tasks.Component.config_base import ConfigBase, Time
 from tasks.GameUi.game_ui import GameUi
 from tasks.GameUi.page import page_realm_raid, page_main, page_kekkai_toppa, page_shikigami_records
 from tasks.RealmRaid.assets import RealmRaidAssets
+from tasks.Component.GeneralBattle.battle_wait import battle_wait_strategy
 
 from module.logger import logger
 from module.exception import TaskEnd
@@ -206,9 +207,9 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
                 continue
 
 
-        # 回 page_main 失败
-        # self.ui_current = page_ryou_toppa
-        # self.ui_goto(page_main)
+        # 回 page_main
+        self.ui_get_current_page()
+        self.ui_goto(page_main)
         if ryou_config.raid_config.time_window_enable:
             self._schedule_next_ryou_toppa()
         elif success:
@@ -372,8 +373,14 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
                 click_failure_count += 1
                 continue
             if self.click(rcl, interval=5):
+                # https://github.com/runhey/OnmyojiAutoScript/issues/1748
+                time.sleep(random.uniform(0, 0.3))
                 click_failure_count += 1
                 continue
+
+    @battle_wait_strategy()
+    def battle_wait(self, *args, **kwargs):
+        return self.battle_wait_with_strategy(*args, **kwargs)
 
 
 if __name__ == "__main__":
