@@ -150,6 +150,11 @@ class RichManAssets:
 	I_ME_CHECK_SOULS = RuleImage(roi_front=(611,225,100,100), roi_back=(507,199,272,175), threshold=0.8, method="Template matching", file="./tasks/RichMan/mall/medal/medal_me_check_souls.png")
 
 
+	# Ocr Rule Assets
+	# Count sold-out labels in medal shop page 
+	O_SOLD_OUT = RuleOcr(roi=(0,100,1280,500), area=(0,100,1280,500), mode="Full", method="Default", keyword="售", name="sold_out")
+
+
 	# Image Rule Assets
 	# 寄售屋 
 	I_MALL_CONSIGNMENT = RuleImage(roi_front=(207,639,56,59), roi_back=(175,610,120,103), threshold=0.8, method="Template matching", file="./tasks/RichMan/mall/navbar/navbar_mall_consignment.png")
@@ -301,7 +306,7 @@ class RichManAssets:
 	# 多少号位 
 	O_SCA_DEMON_POSTION = RuleOcr(roi=(960,244,88,41), area=(960,244,88,41), mode="Single", method="Default", keyword="", name="sca_demon_postion")
 	# 朴素的御魂 
-	O_SCA_RES_OROCHI = RuleOcr(roi=(610,9,127,37), area=(610,9,127,37), mode="DigitCounter", method="Default", keyword="", name="sca_res_orochi")
+	O_SCA_RES_OROCHI = RuleOcr(roi=(547,8,127,37), area=(547,9,127,37), mode="DigitCounter", method="Default", keyword="", name="sca_res_orochi")
 	# 首领御魂数量 
 	O_SCA_RES_DEMON = RuleOcr(roi=(968,11,102,35), area=(968,11,102,35), mode="Digit", method="Default", keyword="", name="sca_res_demon")
 	# 永生之海 
